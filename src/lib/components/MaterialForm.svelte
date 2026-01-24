@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { appState } from '$lib/state.svelte';
+	import { toaster } from '$lib/toaster.svelte';
 	import type { Material } from '$lib/types';
 
 	interface Props {
@@ -9,16 +11,20 @@
 
 	let { material, onclose }: Props = $props();
 
-	let name = $state(material?.name ?? '');
-	let unitCost = $state(material?.unitCost ?? 0);
-	let unit = $state(material?.unit ?? 'each');
-	let notes = $state(material?.notes ?? '');
+	// Capture initial values for form state (intentionally not reactive to prop changes)
+	let name = $state(untrack(() => material?.name ?? ''));
+	let unitCost = $state(untrack(() => material?.unitCost ?? 0));
+	let unit = $state(untrack(() => material?.unit ?? 'each'));
+	let notes = $state(untrack(() => material?.notes ?? ''));
 
 	function handleSubmit(e: Event) {
 		e.preventDefault();
 
 		if (!name.trim()) {
-			alert('Please enter a material name');
+			toaster.error({
+				title: 'Validation Error',
+				description: 'Please enter a material name'
+			});
 			return;
 		}
 

@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { appState } from '$lib/state.svelte';
 	import { downloadState, importState } from '$lib/storage';
+	import { toaster } from '$lib/toaster.svelte';
 
 	let fileInput: HTMLInputElement;
 
 	function handleExport() {
 		downloadState(appState.state);
+		toaster.success({
+			title: 'Export Complete',
+			description: 'Your data has been exported successfully.'
+		});
 	}
 
 	function handleImportClick() {
@@ -21,9 +26,15 @@
 			const text = await file.text();
 			const newState = importState(text);
 			appState.importState(newState);
-			alert('Data imported successfully!');
+			toaster.success({
+				title: 'Import Successful',
+				description: 'Data imported successfully!'
+			});
 		} catch (error) {
-			alert('Failed to import data. Please check the file format.');
+			toaster.error({
+				title: 'Import Failed',
+				description: 'Failed to import data. Please check the file format.'
+			});
 			console.error('Import error:', error);
 		}
 

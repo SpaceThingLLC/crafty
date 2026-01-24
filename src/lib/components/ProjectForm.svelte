@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { appState } from '$lib/state.svelte';
+	import { toaster } from '$lib/toaster.svelte';
 	import type { Project } from '$lib/types';
 
 	interface Props {
@@ -9,14 +11,18 @@
 
 	let { project, onclose }: Props = $props();
 
-	let name = $state(project?.name ?? '');
-	let laborMinutes = $state(project?.laborMinutes ?? 0);
+	// Capture initial values for form state (intentionally not reactive to prop changes)
+	let name = $state(untrack(() => project?.name ?? ''));
+	let laborMinutes = $state(untrack(() => project?.laborMinutes ?? 0));
 
 	function handleSubmit(e: Event) {
 		e.preventDefault();
 
 		if (!name.trim()) {
-			alert('Please enter a project name');
+			toaster.error({
+				title: 'Validation Error',
+				description: 'Please enter a project name'
+			});
 			return;
 		}
 

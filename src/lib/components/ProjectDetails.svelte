@@ -9,6 +9,7 @@
 		getLaborRateUnitLabel
 	} from '$lib/calculator';
 	import ProjectForm from './ProjectForm.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import type { Project } from '$lib/types';
 
 	interface Props {
@@ -23,11 +24,20 @@
 	let addingMaterialId = $state<string | null>(null);
 	let addingQuantity = $state(1);
 
+	// Dialog state
+	let showDeleteDialog = $state(false);
+
 	function handleDelete() {
-		if (project && confirm(`Delete "${project.name}"?`)) {
-			appState.deleteProject(projectId);
-			ondelete();
-		}
+		showDeleteDialog = true;
+	}
+
+	function confirmDelete() {
+		appState.deleteProject(projectId);
+		ondelete();
+	}
+
+	function cancelDelete() {
+		// Dialog closes automatically via bind:open
 	}
 
 	function handleAddMaterial() {
@@ -174,4 +184,14 @@
 			</div>
 		</div>
 	</div>
+
+	<ConfirmDialog
+		bind:open={showDeleteDialog}
+		title="Delete Project"
+		message={`Delete "${project.name}"?`}
+		confirmText="Delete"
+		variant="danger"
+		onconfirm={confirmDelete}
+		oncancel={cancelDelete}
+	/>
 {/if}
