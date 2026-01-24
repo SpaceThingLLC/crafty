@@ -1,33 +1,62 @@
 <script lang="ts">
 	import SquarePlus from '@lucide/svelte/icons/square-plus';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Calculator from '@lucide/svelte/icons/calculator';
 	import { appState } from '$lib/state.svelte';
 	import { calculateProjectTotal, formatCurrency } from '$lib/calculator';
 	import ProjectForm from './ProjectForm.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import type { Project } from '$lib/types';
 
 	interface Props {
-		selectedProjectId: string | null;
-		onselect: (id: string | null) => void;
+		onselectproject: (projectId: string) => void;
 	}
 
-	let { selectedProjectId, onselect }: Props = $props();
+	let { onselectproject }: Props = $props();
 
 	let showForm = $state(false);
+	let editingProject = $state<Project | undefined>(undefined);
+
+	// Dialog state
+	let showDeleteDialog = $state(false);
+	let projectToDelete = $state<Project | null>(null);
 
 	function handleAdd() {
+		editingProject = undefined;
 		showForm = true;
+	}
+
+	function handleEdit(project: Project, e: Event) {
+		e.stopPropagation();
+		editingProject = project;
+		showForm = true;
+	}
+
+	function handleDelete(project: Project, e: Event) {
+		e.stopPropagation();
+		projectToDelete = project;
+		showDeleteDialog = true;
+	}
+
+	function confirmDelete() {
+		if (projectToDelete) {
+			appState.deleteProject(projectToDelete.id);
+			projectToDelete = null;
+		}
+	}
+
+	function cancelDelete() {
+		projectToDelete = null;
 	}
 
 	function handleFormClose() {
 		showForm = false;
+		editingProject = undefined;
 	}
 
 	function handleSelect(project: Project) {
-		if (selectedProjectId === project.id) {
-			onselect(null);
-		} else {
-			onselect(project.id);
-		}
+		onselectproject(project.id);
 	}
 
 	function getProjectTotal(project: Project): string {
@@ -39,44 +68,77 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Your Projects</h3>
-		<button type="button" class="btn-icon btn-sm preset-filled-primary-500" onclick={handleAdd} aria-label="New project">
+		<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
 			<SquarePlus size={16} />
+			<span>New Project</span>
 		</button>
 	</div>
 
 	{#if showForm}
 		<div class="mb-4 p-4 bg-surface-100-900 rounded-lg">
-			<ProjectForm onclose={handleFormClose} />
+			<ProjectForm project={editingProject} onclose={handleFormClose} />
 		</div>
 	{/if}
 
 	{#if appState.projects.length === 0}
-		<p class="text-surface-600-400 text-center py-4">
+		<p class="text-surface-600-400 text-center py-8">
 			No projects yet. Create your first project!
 		</p>
 	{:else}
 		<ul class="space-y-2">
 			{#each appState.projects as project (project.id)}
-				<li>
-					<button
-						type="button"
-						class="w-full text-left p-3 rounded transition-colors {selectedProjectId === project.id
-							? 'bg-primary-500/20 border border-primary-500'
-							: 'hover:bg-surface-100-900'}"
-						onclick={() => handleSelect(project)}
-					>
-						<div class="flex justify-between items-center">
-							<span class="font-medium">{project.name}</span>
-							<span class="text-lg font-bold text-primary-500">
-								{getProjectTotal(project)}
-							</span>
+				<li class="p-3 rounded bg-surface-100-900">
+					<div class="flex justify-between items-start">
+						<div class="flex-1">
+							<div class="flex justify-between items-center">
+								<span class="font-medium">{project.name}</span>
+								<span class="text-lg font-bold text-primary-500">
+									{getProjectTotal(project)}
+								</span>
+							</div>
+							<div class="text-sm text-surface-600-400 mt-1">
+								{project.materials.length} material{project.materials.length !== 1 ? 's' : ''} · {project.laborMinutes} min labor
+							</div>
 						</div>
-						<div class="text-sm text-surface-600-400 mt-1">
-							{project.materials.length} material{project.materials.length !== 1 ? 's' : ''} · {project.laborMinutes} min
-						</div>
-					</button>
+					</div>
+					<div class="flex gap-2 mt-3 pt-3 border-t border-surface-300-700">
+						<button
+							type="button"
+							class="btn btn-sm preset-filled-primary-500 flex-1"
+							onclick={() => handleSelect(project)}
+						>
+							<Calculator size={14} />
+							<span>Calculate</span>
+						</button>
+						<button
+							type="button"
+							class="btn-icon btn-sm preset-outlined-surface-500"
+							onclick={(e) => handleEdit(project, e)}
+							aria-label="Edit project"
+						>
+							<Pencil size={14} />
+						</button>
+						<button
+							type="button"
+							class="btn-icon btn-sm preset-tonal-error"
+							onclick={(e) => handleDelete(project, e)}
+							aria-label="Delete project"
+						>
+							<Trash2 size={14} />
+						</button>
+					</div>
 				</li>
 			{/each}
 		</ul>
 	{/if}
 </div>
+
+<ConfirmDialog
+	bind:open={showDeleteDialog}
+	title="Delete Project"
+	message={projectToDelete ? `Delete "${projectToDelete.name}"?` : ''}
+	confirmText="Delete"
+	variant="danger"
+	onconfirm={confirmDelete}
+	oncancel={cancelDelete}
+/>
