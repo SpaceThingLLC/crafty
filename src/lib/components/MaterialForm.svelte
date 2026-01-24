@@ -1,0 +1,81 @@
+<script lang="ts">
+	import { appState } from '$lib/state.svelte';
+	import type { Material } from '$lib/types';
+
+	interface Props {
+		material?: Material;
+		onclose: () => void;
+	}
+
+	let { material, onclose }: Props = $props();
+
+	let name = $state(material?.name ?? '');
+	let unitCost = $state(material?.unitCost ?? 0);
+	let unit = $state(material?.unit ?? 'each');
+	let notes = $state(material?.notes ?? '');
+
+	function handleSubmit(e: Event) {
+		e.preventDefault();
+
+		if (!name.trim()) {
+			alert('Please enter a material name');
+			return;
+		}
+
+		if (material) {
+			appState.updateMaterial(material.id, {
+				name: name.trim(),
+				unitCost,
+				unit: unit.trim() || 'each',
+				notes: notes.trim() || undefined
+			});
+		} else {
+			appState.addMaterial({
+				name: name.trim(),
+				unitCost,
+				unit: unit.trim() || 'each',
+				notes: notes.trim() || undefined
+			});
+		}
+
+		onclose();
+	}
+</script>
+
+<form onsubmit={handleSubmit} class="space-y-4">
+	<label class="label">
+		<span>Name</span>
+		<input type="text" class="input" bind:value={name} placeholder="e.g., Beads" required />
+	</label>
+
+	<div class="grid grid-cols-2 gap-4">
+		<label class="label">
+			<span>Cost per Unit</span>
+			<input
+				type="number"
+				class="input"
+				bind:value={unitCost}
+				min="0"
+				step="0.01"
+				placeholder="0.00"
+			/>
+		</label>
+
+		<label class="label">
+			<span>Unit</span>
+			<input type="text" class="input" bind:value={unit} placeholder="each, ft, oz" />
+		</label>
+	</div>
+
+	<label class="label">
+		<span>Notes (optional)</span>
+		<input type="text" class="input" bind:value={notes} placeholder="Any additional info" />
+	</label>
+
+	<div class="flex gap-2 justify-end">
+		<button type="button" class="btn preset-tonal-surface" onclick={onclose}>Cancel</button>
+		<button type="submit" class="btn preset-filled-primary-500">
+			{material ? 'Update' : 'Add'} Material
+		</button>
+	</div>
+</form>

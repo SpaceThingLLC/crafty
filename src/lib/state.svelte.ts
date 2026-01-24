@@ -1,0 +1,185 @@
+import { loadState, saveState } from './storage';
+import type { AppState, Material, Project, Settings } from './types';
+import { DEFAULT_SETTINGS } from './types';
+
+/**
+ * Generate a unique ID
+ */
+function generateId(): string {
+	return crypto.randomUUID();
+}
+
+/**
+ * Create the application state store using Svelte 5 runes
+ */
+function createAppState() {
+	let state = $state<AppState>(loadState());
+
+	// Helper to save state after mutations
+	function persist() {
+		saveState(state);
+	}
+
+	return {
+		// Getters
+		get settings() {
+			return state.settings;
+		},
+		get materials() {
+			return state.materials;
+		},
+		get projects() {
+			return state.projects;
+		},
+		get state() {
+			return state;
+		},
+
+		// Settings actions
+		updateSettings(updates: Partial<Settings>) {
+			state.settings = { ...state.settings, ...updates };
+			persist();
+		},
+
+		// Material actions
+		addMaterial(material: Omit<Material, 'id'>) {
+			const newMaterial: Material = {
+				...material,
+				id: generateId()
+			};
+			state.materials = [...state.materials, newMaterial];
+			persist();
+			return newMaterial;
+		},
+
+		updateMaterial(id: string, updates: Partial<Omit<Material, 'id'>>) {
+			state.materials = state.materials.map((m) =>
+				m.id === id ? { ...m, ...updates } : m
+			);
+			persist();
+		},
+
+		deleteMaterial(id: string) {
+			state.materials = state.materials.filter((m) => m.id !== id);
+			// Also remove this material from all projects
+			state.projects = state.projects.map((p) => ({
+				...p,
+				materials: p.materials.filter((pm) => pm.materialId !== id),
+				updatedAt: Date.now()
+			}));
+			persist();
+		},
+
+		getMaterial(id: string): Material | undefined {
+			return state.materials.find((m) => m.id === id);
+		},
+
+		// Project actions
+		addProject(name: string) {
+			const now = Date.now();
+			const newProject: Project = {
+				id: generateId(),
+				name,
+				materials: [],
+				laborMinutes: 0,
+				createdAt: now,
+				updatedAt: now
+			};
+			state.projects = [...state.projects, newProject];
+			persist();
+			return newProject;
+		},
+
+		updateProject(id: string, updates: Partial<Omit<Project, 'id' | 'createdAt'>>) {
+			state.projects = state.projects.map((p) =>
+				p.id === id
+					? { ...p, ...updates, updatedAt: Date.now() }
+					: p
+			);
+			persist();
+		},
+
+		deleteProject(id: string) {
+			state.projects = state.projects.filter((p) => p.id !== id);
+			persist();
+		},
+
+		getProject(id: string): Project | undefined {
+			return state.projects.find((p) => p.id === id);
+		},
+
+		// Project material actions
+		addMaterialToProject(projectId: string, materialId: string, quantity: number = 1) {
+			state.projects = state.projects.map((p) => {
+				if (p.id !== projectId) return p;
+
+				// Check if material already exists in project
+				const existing = p.materials.find((pm) => pm.materialId === materialId);
+				if (existing) {
+					return {
+						...p,
+						materials: p.materials.map((pm) =>
+							pm.materialId === materialId
+								? { ...pm, quantity: pm.quantity + quantity }
+								: pm
+						),
+						updatedAt: Date.now()
+					};
+				}
+
+				return {
+					...p,
+					materials: [...p.materials, { materialId, quantity }],
+					updatedAt: Date.now()
+				};
+			});
+			persist();
+		},
+
+		updateProjectMaterial(projectId: string, materialId: string, quantity: number) {
+			state.projects = state.projects.map((p) => {
+				if (p.id !== projectId) return p;
+
+				return {
+					...p,
+					materials: p.materials.map((pm) =>
+						pm.materialId === materialId ? { ...pm, quantity } : pm
+					),
+					updatedAt: Date.now()
+				};
+			});
+			persist();
+		},
+
+		removeProjectMaterial(projectId: string, materialId: string) {
+			state.projects = state.projects.map((p) => {
+				if (p.id !== projectId) return p;
+
+				return {
+					...p,
+					materials: p.materials.filter((pm) => pm.materialId !== materialId),
+					updatedAt: Date.now()
+				};
+			});
+			persist();
+		},
+
+		// Import/Export
+		importState(newState: AppState) {
+			state.settings = newState.settings;
+			state.materials = newState.materials;
+			state.projects = newState.projects;
+			persist();
+		},
+
+		resetState() {
+			state.settings = DEFAULT_SETTINGS;
+			state.materials = [];
+			state.projects = [];
+			persist();
+		}
+	};
+}
+
+// Export singleton instance
+export const appState = createAppState();
