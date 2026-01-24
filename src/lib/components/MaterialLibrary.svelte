@@ -1,4 +1,7 @@
 <script lang="ts">
+	import SquarePlus from '@lucide/svelte/icons/square-plus';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { appState } from '$lib/state.svelte';
 	import { formatCurrency } from '$lib/calculator';
 	import MaterialForm from './MaterialForm.svelte';
@@ -47,8 +50,8 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Materials Library</h3>
-		<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
-			+ Add Material
+		<button type="button" class="btn-icon btn-sm preset-filled-primary-500" onclick={handleAdd} aria-label="Add material">
+			<SquarePlus size={16} />
 		</button>
 	</div>
 
@@ -78,17 +81,19 @@
 					<div class="flex gap-1">
 						<button
 							type="button"
-							class="btn btn-sm preset-tonal-surface"
+							class="btn-icon btn-sm preset-outlined-surface-500"
 							onclick={() => handleEdit(material)}
+							aria-label="Edit material"
 						>
-							Edit
+							<Pencil size={14} />
 						</button>
 						<button
 							type="button"
-							class="btn btn-sm preset-tonal-error"
+							class="btn-icon btn-sm preset-tonal-error"
 							onclick={() => handleDelete(material)}
+							aria-label="Delete material"
 						>
-							Delete
+							<Trash2 size={14} />
 						</button>
 					</div>
 				</li>

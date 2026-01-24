@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SquarePlus from '@lucide/svelte/icons/square-plus';
 	import { appState } from '$lib/state.svelte';
 	import { calculateProjectTotal, formatCurrency } from '$lib/calculator';
 	import ProjectForm from './ProjectForm.svelte';
@@ -38,8 +39,8 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Your Projects</h3>
-		<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
-			+ New Project
+		<button type="button" class="btn-icon btn-sm preset-filled-primary-500" onclick={handleAdd} aria-label="New project">
+			<SquarePlus size={16} />
 		</button>
 	</div>
 

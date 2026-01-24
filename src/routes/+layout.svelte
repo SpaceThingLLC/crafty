@@ -23,7 +23,7 @@
 						<Toast.Description>{toast.description}</Toast.Description>
 					{/if}
 				</Toast.Message>
-				<Toast.CloseTrigger class="btn btn-sm preset-tonal-surface">
+				<Toast.CloseTrigger class="btn-icon btn-sm preset-tonal-surface" aria-label="Close">
 					&times;
 				</Toast.CloseTrigger>
 			</Toast>

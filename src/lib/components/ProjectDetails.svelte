@@ -1,4 +1,8 @@
 <script lang="ts">
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import SquarePlus from '@lucide/svelte/icons/square-plus';
+	import X from '@lucide/svelte/icons/x';
 	import { appState } from '$lib/state.svelte';
 	import {
 		calculateMaterialCost,
@@ -69,11 +73,13 @@
 		<div class="flex justify-between items-center mb-4">
 			<h3 class="text-lg font-bold">{project.name}</h3>
 			<div class="flex gap-2">
-				<button type="button" class="btn btn-sm preset-tonal-surface" onclick={() => (showEditForm = true)}>
-					Edit
+				<button type="button" class="btn btn-sm preset-outlined-surface-500" onclick={() => (showEditForm = true)}>
+					<Pencil size={14} />
+					<span>Edit</span>
 				</button>
 				<button type="button" class="btn btn-sm preset-tonal-error" onclick={handleDelete}>
-					Delete
+					<Trash2 size={14} />
+					<span>Delete</span>
 				</button>
 			</div>
 		</div>
@@ -88,7 +94,7 @@
 		{#if availableMaterials.length > 0}
 			<div class="flex gap-2 items-end mb-4 p-3 bg-surface-100-900 rounded-lg">
 				<label class="label flex-1">
-					<span class="text-sm">Add Material</span>
+					<span class="label-text">Add Material</span>
 					<select class="select" bind:value={addingMaterialId}>
 						<option value={null}>Select material...</option>
 						{#each availableMaterials as material}
@@ -99,7 +105,7 @@
 					</select>
 				</label>
 				<label class="label w-24">
-					<span class="text-sm">Qty</span>
+					<span class="label-text">Qty</span>
 					<input type="number" class="input" bind:value={addingQuantity} min="0" step="0.1" />
 				</label>
 				<button
@@ -108,7 +114,8 @@
 					onclick={handleAddMaterial}
 					disabled={!addingMaterialId}
 				>
-					Add
+					<SquarePlus size={16} />
+					<span>Add</span>
 				</button>
 			</div>
 		{:else if appState.materials.length === 0}
@@ -144,10 +151,11 @@
 								</span>
 								<button
 									type="button"
-									class="btn btn-sm preset-tonal-error"
+									class="btn-icon btn-sm preset-tonal-error"
 									onclick={() => handleRemoveMaterial(pm.materialId)}
+									aria-label="Remove material"
 								>
-									×
+									<X size={14} />
 								</button>
 							</li>
 						{/if}
