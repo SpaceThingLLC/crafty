@@ -28,7 +28,7 @@
 	<h3 class="text-lg font-bold mb-4">Settings</h3>
 	<div class="flex flex-wrap gap-4 items-end">
 		<label class="label">
-			<span class="text-sm">Currency</span>
+			<span class="label-text">Currency</span>
 			<input
 				type="text"
 				class="input w-16 text-center"
@@ -39,7 +39,7 @@
 		</label>
 
 		<label class="label">
-			<span class="text-sm">Labor Rate</span>
+			<span class="label-text">Labor Rate</span>
 			<input
 				type="number"
 				class="input w-24"
@@ -51,7 +51,7 @@
 		</label>
 
 		<label class="label">
-			<span class="text-sm">Per</span>
+			<span class="label-text">Per</span>
 			<select class="select w-32" value={appState.settings.laborRateUnit} onchange={handleLaborRateUnitChange}>
 				{#each laborRateUnits as unit}
 					<option value={unit}>{getLaborRateUnitLabel(unit)}</option>

@@ -1,11 +1,12 @@
 <script lang="ts">
-	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
+	import Settings from '@lucide/svelte/icons/settings';
 	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
 	import ProjectList from '$lib/components/ProjectList.svelte';
 	import ProjectDetails from '$lib/components/ProjectDetails.svelte';
-	import ImportExport from '$lib/components/ImportExport.svelte';
+	import SettingsDrawer from '$lib/components/SettingsDrawer.svelte';
 
 	let selectedProjectId = $state<string | null>(null);
+	let settingsOpen = $state(false);
 
 	function handleProjectSelect(id: string | null) {
 		selectedProjectId = id;
@@ -28,14 +29,12 @@
 				<h1 class="text-4xl font-bold">Crafty</h1>
 				<p class="text-surface-600-400">Craft Cost Calculator</p>
 			</div>
-			<ImportExport />
+			<button type="button" class="btn preset-tonal-surface" onclick={() => settingsOpen = true}>
+				<Settings size={18} />
+				<span>Settings</span>
+			</button>
 		</div>
 	</header>
-
-	<!-- Settings -->
-	<section class="mb-6">
-		<SettingsPanel />
-	</section>
 
 	<!-- Main Content Grid -->
 	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -65,6 +64,8 @@
 
 	<!-- Footer -->
 	<footer class="mt-8 pt-4 border-t border-surface-300-700 text-center text-sm text-surface-500">
-		<p>Your data is saved locally in your browser. Use Export to back up your data.</p>
+		<p>Data saved locally. Open Settings to export a backup.</p>
 	</footer>
 </main>
+
+<SettingsDrawer bind:open={settingsOpen} />

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import Save from '@lucide/svelte/icons/save';
+	import SquareX from '@lucide/svelte/icons/square-x';
 	import { appState } from '$lib/state.svelte';
 	import { toaster } from '$lib/toaster.svelte';
 	import type { Project } from '$lib/types';
@@ -42,12 +44,12 @@
 
 <form onsubmit={handleSubmit} class="space-y-4">
 	<label class="label">
-		<span>Project Name</span>
+		<span class="label-text">Project Name</span>
 		<input type="text" class="input" bind:value={name} placeholder="e.g., Cow Keychain" required />
 	</label>
 
 	<label class="label">
-		<span>Time to Make (minutes)</span>
+		<span class="label-text">Time to Make (minutes)</span>
 		<input
 			type="number"
 			class="input"
@@ -59,9 +61,13 @@
 	</label>
 
 	<div class="flex gap-2 justify-end">
-		<button type="button" class="btn preset-tonal-surface" onclick={onclose}>Cancel</button>
+		<button type="button" class="btn preset-tonal-surface" onclick={onclose}>
+			<SquareX size={16} />
+			<span>Cancel</span>
+		</button>
 		<button type="submit" class="btn preset-filled-primary-500">
-			{project ? 'Update' : 'Create'} Project
+			<Save size={16} />
+			<span>Save</span>
 		</button>
 	</div>
 </form>
