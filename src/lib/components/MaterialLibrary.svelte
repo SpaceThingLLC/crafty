@@ -50,7 +50,7 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Materials Library</h3>
-		<button type="button" class="btn-icon btn-sm preset-filled-primary-500" onclick={handleAdd}>
+		<button type="button" class="btn-icon btn-sm preset-filled-primary-500" onclick={handleAdd} aria-label="Add material">
 			<SquarePlus size={16} />
 		</button>
 	</div>
@@ -83,6 +83,7 @@
 							type="button"
 							class="btn-icon btn-sm preset-outlined-surface-500"
 							onclick={() => handleEdit(material)}
+							aria-label="Edit material"
 						>
 							<Pencil size={14} />
 						</button>
@@ -90,6 +91,7 @@
 							type="button"
 							class="btn-icon btn-sm preset-tonal-error"
 							onclick={() => handleDelete(material)}
+							aria-label="Delete material"
 						>
 							<Trash2 size={14} />
 						</button>

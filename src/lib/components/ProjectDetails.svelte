@@ -153,6 +153,7 @@
 									type="button"
 									class="btn-icon btn-sm preset-tonal-error"
 									onclick={() => handleRemoveMaterial(pm.materialId)}
+									aria-label="Remove material"
 								>
 									<X size={14} />
 								</button>

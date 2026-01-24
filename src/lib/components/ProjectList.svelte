@@ -39,7 +39,7 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Your Projects</h3>
-		<button type="button" class="btn-icon btn-sm preset-filled-primary-500" onclick={handleAdd}>
+		<button type="button" class="btn-icon btn-sm preset-filled-primary-500" onclick={handleAdd} aria-label="New project">
 			<SquarePlus size={16} />
 		</button>
 	</div>

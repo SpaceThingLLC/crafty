@@ -91,7 +91,7 @@
 				<!-- Header -->
 				<div class="flex items-center justify-between p-4 border-b border-surface-300-700">
 					<Dialog.Title class="text-lg font-bold">Settings</Dialog.Title>
-					<button type="button" class="btn-icon btn-sm preset-tonal-surface" onclick={handleClose}>
+					<button type="button" class="btn-icon btn-sm preset-tonal-surface" onclick={handleClose} aria-label="Close settings">
 						<X size={18} />
 					</button>
 				</div>
