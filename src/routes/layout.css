@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/themes/cerberus';
+
+@plugin '@tailwindcss/forms';
+
+/* Custom styles */
+:root {
+	--app-max-width: 1200px;
+}
+
+body {
+	min-height: 100vh;
+}

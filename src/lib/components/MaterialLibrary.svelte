@@ -1,0 +1,83 @@
+<script lang="ts">
+	import { appState } from '$lib/state.svelte';
+	import { formatCurrency } from '$lib/calculator';
+	import MaterialForm from './MaterialForm.svelte';
+	import type { Material } from '$lib/types';
+
+	let showForm = $state(false);
+	let editingMaterial = $state<Material | undefined>(undefined);
+
+	function handleAdd() {
+		editingMaterial = undefined;
+		showForm = true;
+	}
+
+	function handleEdit(material: Material) {
+		editingMaterial = material;
+		showForm = true;
+	}
+
+	function handleDelete(material: Material) {
+		if (confirm(`Delete "${material.name}"? This will also remove it from all projects.`)) {
+			appState.deleteMaterial(material.id);
+		}
+	}
+
+	function handleFormClose() {
+		showForm = false;
+		editingMaterial = undefined;
+	}
+</script>
+
+<div class="card p-4">
+	<div class="flex justify-between items-center mb-4">
+		<h3 class="text-lg font-bold">Materials Library</h3>
+		<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
+			+ Add Material
+		</button>
+	</div>
+
+	{#if showForm}
+		<div class="mb-4 p-4 bg-surface-100-900 rounded-lg">
+			<MaterialForm material={editingMaterial} onclose={handleFormClose} />
+		</div>
+	{/if}
+
+	{#if appState.materials.length === 0}
+		<p class="text-surface-600-400 text-center py-4">
+			No materials yet. Add your first material to get started!
+		</p>
+	{:else}
+		<ul class="space-y-2">
+			{#each appState.materials as material (material.id)}
+				<li class="flex items-center justify-between p-2 rounded hover:bg-surface-100-900">
+					<div class="flex-1">
+						<span class="font-medium">{material.name}</span>
+						<span class="text-surface-600-400 text-sm ml-2">
+							{formatCurrency(material.unitCost, appState.settings.currencySymbol)}/{material.unit}
+						</span>
+						{#if material.notes}
+							<span class="text-surface-500 text-xs ml-2">({material.notes})</span>
+						{/if}
+					</div>
+					<div class="flex gap-1">
+						<button
+							type="button"
+							class="btn btn-sm preset-tonal-surface"
+							onclick={() => handleEdit(material)}
+						>
+							Edit
+						</button>
+						<button
+							type="button"
+							class="btn btn-sm preset-tonal-error"
+							onclick={() => handleDelete(material)}
+						>
+							Delete
+						</button>
+					</div>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</div>
