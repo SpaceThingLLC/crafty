@@ -50,8 +50,9 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Materials Library</h3>
-		<button type="button" class="btn-icon btn-sm preset-filled-primary-500" onclick={handleAdd} aria-label="Add material">
+		<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
 			<SquarePlus size={16} />
+			<span>Add Material</span>
 		</button>
 	</div>
 
@@ -62,20 +63,20 @@
 	{/if}
 
 	{#if appState.materials.length === 0}
-		<p class="text-surface-600-400 text-center py-4">
+		<p class="text-surface-600-400 text-center py-8">
 			No materials yet. Add your first material to get started!
 		</p>
 	{:else}
 		<ul class="space-y-2">
 			{#each appState.materials as material (material.id)}
-				<li class="flex items-center justify-between p-2 rounded hover:bg-surface-100-900">
+				<li class="flex items-center justify-between p-3 rounded bg-surface-100-900">
 					<div class="flex-1">
 						<span class="font-medium">{material.name}</span>
 						<span class="text-surface-600-400 text-sm ml-2">
 							{formatCurrency(material.unitCost, appState.settings.currencySymbol)}/{material.unit}
 						</span>
 						{#if material.notes}
-							<span class="text-surface-500 text-xs ml-2">({material.notes})</span>
+							<p class="text-surface-500 text-xs mt-1">{material.notes}</p>
 						{/if}
 					</div>
 					<div class="flex gap-1">
