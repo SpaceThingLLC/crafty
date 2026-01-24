@@ -9,7 +9,7 @@
 		cancelText?: string;
 		variant?: 'danger' | 'warning' | 'default';
 		onconfirm: () => void;
-		oncancel: () => void;
+		oncancel?: () => void;
 	}
 
 	let {
@@ -20,24 +20,28 @@
 		cancelText = 'Cancel',
 		variant = 'default',
 		onconfirm,
-		oncancel
+		oncancel = () => {}
 	}: Props = $props();
 
+	// Track whether we're confirming to avoid calling oncancel incorrectly
+	let confirming = false;
+
 	function handleConfirm() {
+		confirming = true;
 		onconfirm();
 		open = false;
 	}
 
 	function handleCancel() {
-		oncancel();
 		open = false;
 	}
 
 	function handleOpenChange(details: { open: boolean }) {
 		open = details.open;
-		if (!details.open) {
+		if (!details.open && !confirming) {
 			oncancel();
 		}
+		confirming = false;
 	}
 
 	const confirmButtonClass: Record<string, string> = {

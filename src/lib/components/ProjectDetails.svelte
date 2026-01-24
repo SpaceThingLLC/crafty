@@ -36,10 +36,6 @@
 		ondelete();
 	}
 
-	function cancelDelete() {
-		// Dialog closes automatically via bind:open
-	}
-
 	function handleAddMaterial() {
 		if (addingMaterialId && addingQuantity > 0) {
 			appState.addMaterialToProject(projectId, addingMaterialId, addingQuantity);
@@ -192,6 +188,5 @@
 		confirmText="Delete"
 		variant="danger"
 		onconfirm={confirmDelete}
-		oncancel={cancelDelete}
 	/>
 {/if}

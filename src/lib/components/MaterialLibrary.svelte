@@ -100,7 +100,9 @@
 <ConfirmDialog
 	bind:open={showDeleteDialog}
 	title="Delete Material"
-	message={`Delete "${materialToDelete?.name}"? This will also remove it from all projects.`}
+	message={materialToDelete
+		? `Delete "${materialToDelete.name}"? This will also remove it from all projects.`
+		: ''}
 	confirmText="Delete"
 	variant="danger"
 	onconfirm={confirmDelete}
