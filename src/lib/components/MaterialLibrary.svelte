@@ -2,10 +2,15 @@
 	import { appState } from '$lib/state.svelte';
 	import { formatCurrency } from '$lib/calculator';
 	import MaterialForm from './MaterialForm.svelte';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import type { Material } from '$lib/types';
 
 	let showForm = $state(false);
 	let editingMaterial = $state<Material | undefined>(undefined);
+
+	// Dialog state
+	let showDeleteDialog = $state(false);
+	let materialToDelete = $state<Material | null>(null);
 
 	function handleAdd() {
 		editingMaterial = undefined;
@@ -18,9 +23,19 @@
 	}
 
 	function handleDelete(material: Material) {
-		if (confirm(`Delete "${material.name}"? This will also remove it from all projects.`)) {
-			appState.deleteMaterial(material.id);
+		materialToDelete = material;
+		showDeleteDialog = true;
+	}
+
+	function confirmDelete() {
+		if (materialToDelete) {
+			appState.deleteMaterial(materialToDelete.id);
+			materialToDelete = null;
 		}
+	}
+
+	function cancelDelete() {
+		materialToDelete = null;
 	}
 
 	function handleFormClose() {
@@ -81,3 +96,15 @@
 		</ul>
 	{/if}
 </div>
+
+<ConfirmDialog
+	bind:open={showDeleteDialog}
+	title="Delete Material"
+	message={materialToDelete
+		? `Delete "${materialToDelete.name}"? This will also remove it from all projects.`
+		: ''}
+	confirmText="Delete"
+	variant="danger"
+	onconfirm={confirmDelete}
+	oncancel={cancelDelete}
+/>
