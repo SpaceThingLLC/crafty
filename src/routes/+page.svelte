@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import Download from '@lucide/svelte/icons/download';
 	import Upload from '@lucide/svelte/icons/upload';
+	import Eye from '@lucide/svelte/icons/eye';
+	import Plus from '@lucide/svelte/icons/plus';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import Calculator from '$lib/components/Calculator.svelte';
 	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
@@ -186,6 +188,24 @@
 				/>
 			</div>
 		</header>
+
+		<!-- View-only banner -->
+		{#if appState.workspace && !appState.canEdit}
+			<div class="card preset-tonal-surface p-3 mb-4 flex items-center justify-between gap-4">
+				<div class="flex items-center gap-2 text-sm">
+					<Eye size={16} />
+					<span>You're viewing someone else's workspace</span>
+				</div>
+				<button
+					type="button"
+					class="btn btn-sm preset-filled-primary-500"
+					onclick={() => (workspaceSetupOpen = true)}
+				>
+					<Plus size={16} />
+					<span>Create Your Own</span>
+				</button>
+			</div>
+		{/if}
 
 		<!-- Tabs Navigation -->
 		<Tabs value={activeTab} onValueChange={(details) => (activeTab = details.value)}>

@@ -261,15 +261,22 @@ function createAppState() {
 			workspace = result.workspace;
 			initialized = true;
 
-			// If we got remote data, merge it
 			if (result.remoteState) {
-				state.settings = result.remoteState.settings;
-				state.materials = result.remoteState.materials;
-				state.projects = result.remoteState.projects;
-				// Keep local lastSelectedProjectId
-				saveState(state);
-				lastSyncedAt = Date.now();
-				saveSyncMeta({ lastSyncedAt });
+				// Only pull remote data if in view-only mode
+				// In edit mode, local data is authoritative
+				if (!canEdit(workspace)) {
+					state.settings = result.remoteState.settings;
+					state.materials = result.remoteState.materials;
+					state.projects = result.remoteState.projects;
+					// Keep local lastSelectedProjectId
+					saveState(state);
+					lastSyncedAt = Date.now();
+					saveSyncMeta({ lastSyncedAt });
+				} else {
+					// In edit mode, push local to remote instead
+					syncStatus = 'pending';
+					scheduleSync();
+				}
 			}
 
 			return result;
