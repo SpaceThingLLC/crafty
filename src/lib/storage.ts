@@ -2,9 +2,14 @@ import type { AppState, ExtendedAppState, WorkspaceInfo } from './types';
 import { DEFAULT_STATE, DEFAULT_SETTINGS, DEFAULT_EXTENDED_STATE } from './types';
 import { AppStateSchema, type ValidationResult, formatValidationErrors } from './schemas';
 
-const STORAGE_KEY = 'crafty-app-state';
-const WORKSPACE_KEY = 'crafty-workspace';
-const SYNC_META_KEY = 'crafty-sync-meta';
+const STORAGE_KEY = 'pricemycraft-app-state';
+const LEGACY_STORAGE_KEY = 'crafty-app-state';
+const WORKSPACE_KEY = 'pricemycraft-workspace';
+const SYNC_META_KEY = 'pricemycraft-sync-meta';
+
+// Legacy keys for migration
+const LEGACY_WORKSPACE_KEY = 'crafty-workspace';
+const LEGACY_SYNC_META_KEY = 'crafty-sync-meta';
 
 /**
  * Check if we're in a browser environment
@@ -47,7 +52,8 @@ function migrateState(data: unknown): unknown {
 }
 
 /**
- * Load state from localStorage with validation
+ * Load state from localStorage with validation.
+ * Includes migration from legacy storage key (crafty-app-state) to new key (pricemycraft-app-state).
  */
 export function loadState(): AppState {
 	if (!isBrowser()) {
@@ -55,7 +61,21 @@ export function loadState(): AppState {
 	}
 
 	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
+		// Check for data under new key first
+		let stored = localStorage.getItem(STORAGE_KEY);
+
+		// If no data under new key, check for legacy data and migrate
+		if (!stored) {
+			const legacyStored = localStorage.getItem(LEGACY_STORAGE_KEY);
+			if (legacyStored) {
+				// Migrate: copy to new key and remove old key
+				localStorage.setItem(STORAGE_KEY, legacyStored);
+				localStorage.removeItem(LEGACY_STORAGE_KEY);
+				stored = legacyStored;
+				console.info('Migrated data from legacy storage key');
+			}
+		}
+
 		if (!stored) {
 			return DEFAULT_STATE;
 		}
@@ -96,7 +116,7 @@ export function saveState(state: AppState): void {
 }
 
 /**
- * Clear all stored state
+ * Clear all stored state (including any legacy storage keys)
  */
 export function clearState(): void {
 	if (!isBrowser()) {
@@ -104,6 +124,7 @@ export function clearState(): void {
 	}
 
 	localStorage.removeItem(STORAGE_KEY);
+	localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
 /**
@@ -157,7 +178,7 @@ export function downloadState(state: AppState): void {
 
 	const a = document.createElement('a');
 	a.href = url;
-	a.download = `crafty-backup-${new Date().toISOString().split('T')[0]}.json`;
+	a.download = `pricemycraft-backup-${new Date().toISOString().split('T')[0]}.json`;
 	document.body.appendChild(a);
 	a.click();
 	document.body.removeChild(a);
@@ -171,7 +192,7 @@ interface SyncMeta {
 }
 
 /**
- * Load workspace info from localStorage
+ * Load workspace info from localStorage (with legacy key migration)
  */
 export function loadWorkspace(): WorkspaceInfo | null {
 	if (!isBrowser()) {
@@ -179,7 +200,19 @@ export function loadWorkspace(): WorkspaceInfo | null {
 	}
 
 	try {
-		const stored = localStorage.getItem(WORKSPACE_KEY);
+		let stored = localStorage.getItem(WORKSPACE_KEY);
+
+		// Check for legacy key and migrate
+		if (!stored) {
+			const legacyStored = localStorage.getItem(LEGACY_WORKSPACE_KEY);
+			if (legacyStored) {
+				localStorage.setItem(WORKSPACE_KEY, legacyStored);
+				localStorage.removeItem(LEGACY_WORKSPACE_KEY);
+				stored = legacyStored;
+				console.info('Migrated workspace from legacy storage key');
+			}
+		}
+
 		if (!stored) return null;
 		return JSON.parse(stored) as WorkspaceInfo;
 	} catch {
@@ -203,7 +236,7 @@ export function saveWorkspace(workspace: WorkspaceInfo): void {
 }
 
 /**
- * Clear workspace info
+ * Clear workspace info (including legacy key)
  */
 export function clearWorkspace(): void {
 	if (!isBrowser()) {
@@ -211,10 +244,11 @@ export function clearWorkspace(): void {
 	}
 
 	localStorage.removeItem(WORKSPACE_KEY);
+	localStorage.removeItem(LEGACY_WORKSPACE_KEY);
 }
 
 /**
- * Load sync metadata
+ * Load sync metadata (with legacy key migration)
  */
 export function loadSyncMeta(): SyncMeta {
 	if (!isBrowser()) {
@@ -222,7 +256,19 @@ export function loadSyncMeta(): SyncMeta {
 	}
 
 	try {
-		const stored = localStorage.getItem(SYNC_META_KEY);
+		let stored = localStorage.getItem(SYNC_META_KEY);
+
+		// Check for legacy key and migrate
+		if (!stored) {
+			const legacyStored = localStorage.getItem(LEGACY_SYNC_META_KEY);
+			if (legacyStored) {
+				localStorage.setItem(SYNC_META_KEY, legacyStored);
+				localStorage.removeItem(LEGACY_SYNC_META_KEY);
+				stored = legacyStored;
+				console.info('Migrated sync meta from legacy storage key');
+			}
+		}
+
 		if (!stored) return { lastSyncedAt: null };
 		return JSON.parse(stored) as SyncMeta;
 	} catch {

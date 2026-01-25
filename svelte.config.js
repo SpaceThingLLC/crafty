@@ -13,7 +13,7 @@ const config = {
 			strict: true
 		}),
 		paths: {
-			base: process.argv.includes('dev') ? '' : '/crafty'
+			base: process.argv.includes('dev') ? '' : '/pricemycraft'
 		},
 		prerender: {
 			handleHttpError: ({ path, message }) => {
