@@ -121,9 +121,10 @@
 							/>
 							<button
 								type="button"
-								class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-surface-500 hover:text-surface-700"
+								class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-surface-500 hover:text-surface-700 disabled:opacity-50"
 								onclick={() => (showPassphrase = !showPassphrase)}
 								tabindex={-1}
+								disabled={isVerifying}
 								aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
 							>
 								{#if showPassphrase}
