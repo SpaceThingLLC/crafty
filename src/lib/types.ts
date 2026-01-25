@@ -55,6 +55,42 @@ export interface AppState {
 }
 
 /**
+ * Workspace sync status
+ */
+export type SyncStatus = 'offline' | 'syncing' | 'synced' | 'error' | 'pending';
+
+/**
+ * Pending change to sync
+ */
+export interface PendingChange {
+	id: string;
+	type: 'insert' | 'update' | 'delete';
+	table: 'settings' | 'materials' | 'projects' | 'project_materials';
+	data: Record<string, unknown>;
+	timestamp: number;
+}
+
+/**
+ * Workspace metadata stored locally
+ */
+export interface WorkspaceInfo {
+	id: string;
+	passphrase: string | null; // Stored locally for convenience
+	isOwner: boolean; // True if user created this workspace
+	createdAt: number;
+}
+
+/**
+ * Extended state with workspace and sync info
+ */
+export interface ExtendedAppState extends AppState {
+	workspace: WorkspaceInfo | null;
+	syncStatus: SyncStatus;
+	lastSyncedAt: number | null;
+	pendingChanges: PendingChange[];
+}
+
+/**
  * Default settings for new installations
  */
 export const DEFAULT_SETTINGS: Settings = {
@@ -71,4 +107,15 @@ export const DEFAULT_STATE: AppState = {
 	materials: [],
 	projects: [],
 	lastSelectedProjectId: null
+};
+
+/**
+ * Default extended state with workspace info
+ */
+export const DEFAULT_EXTENDED_STATE: ExtendedAppState = {
+	...DEFAULT_STATE,
+	workspace: null,
+	syncStatus: 'offline',
+	lastSyncedAt: null,
+	pendingChanges: []
 };

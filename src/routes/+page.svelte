@@ -1,14 +1,47 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Settings from '@lucide/svelte/icons/settings';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import Calculator from '$lib/components/Calculator.svelte';
 	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
 	import ProjectList from '$lib/components/ProjectList.svelte';
 	import SettingsDrawer from '$lib/components/SettingsDrawer.svelte';
+	import SyncStatus from '$lib/components/SyncStatus.svelte';
+	import WorkspaceSetup from '$lib/components/WorkspaceSetup.svelte';
+	import PassphraseModal from '$lib/components/PassphraseModal.svelte';
 	import { appState } from '$lib/state.svelte';
+	import { isSupabaseConfigured } from '$lib/db';
+	import type { WorkspaceInfo } from '$lib/types';
 
 	let activeTab = $state('calculator');
 	let settingsOpen = $state(false);
+	let workspaceSetupOpen = $state(false);
+	let passphraseModalOpen = $state(false);
+
+	// Initialize sync on mount
+	onMount(async () => {
+		await appState.initializeSync();
+
+		// If no workspace and Supabase is configured, prompt to create one
+		if (!appState.workspace && isSupabaseConfigured()) {
+			// Give user a moment to see the app first
+			setTimeout(() => {
+				workspaceSetupOpen = true;
+			}, 1000);
+		}
+	});
+
+	function handleWorkspaceCreated(workspace: WorkspaceInfo) {
+		appState.setWorkspace(workspace);
+		// Sync initial data to the new workspace
+		appState.sync();
+	}
+
+	function handlePassphraseVerified(passphrase: string) {
+		appState.updatePassphrase(passphrase);
+		// Refresh data from remote
+		appState.pull();
+	}
 
 	// Initialize from persisted state, validating project still exists.
 	// Note: This function intentionally has a side effect - if the persisted project
@@ -54,10 +87,19 @@
 				<h1 class="text-4xl font-bold">Crafty</h1>
 				<p class="text-surface-600-400">Craft Cost Calculator</p>
 			</div>
-			<button type="button" class="btn preset-tonal-surface" onclick={() => settingsOpen = true}>
-				<Settings size={18} />
-				<span>Settings</span>
-			</button>
+			<div class="flex items-center gap-2">
+				<SyncStatus
+					status={appState.syncStatus}
+					workspace={appState.workspace}
+					lastSyncedAt={appState.lastSyncedAt}
+					onsync={() => appState.sync()}
+					onunlock={() => (passphraseModalOpen = true)}
+				/>
+				<button type="button" class="btn preset-tonal-surface" onclick={() => settingsOpen = true}>
+					<Settings size={18} />
+					<span>Settings</span>
+				</button>
+			</div>
 		</div>
 	</header>
 
@@ -85,3 +127,18 @@
 </main>
 
 <SettingsDrawer bind:open={settingsOpen} />
+
+<!-- Workspace Setup Modal -->
+<WorkspaceSetup
+	bind:open={workspaceSetupOpen}
+	oncreate={handleWorkspaceCreated}
+/>
+
+<!-- Passphrase Modal -->
+{#if appState.workspace}
+	<PassphraseModal
+		bind:open={passphraseModalOpen}
+		workspaceId={appState.workspace.id}
+		onverified={handlePassphraseVerified}
+	/>
+{/if}

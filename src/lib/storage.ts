@@ -1,7 +1,9 @@
-import type { AppState } from './types';
-import { DEFAULT_STATE } from './types';
+import type { AppState, ExtendedAppState, WorkspaceInfo } from './types';
+import { DEFAULT_STATE, DEFAULT_EXTENDED_STATE } from './types';
 
 const STORAGE_KEY = 'crafty-app-state';
+const WORKSPACE_KEY = 'crafty-workspace';
+const SYNC_META_KEY = 'crafty-sync-meta';
 
 /**
  * Check if we're in a browser environment
@@ -106,4 +108,102 @@ export function downloadState(state: AppState): void {
 	a.click();
 	document.body.removeChild(a);
 	URL.revokeObjectURL(url);
+}
+
+// Workspace and sync metadata storage
+
+interface SyncMeta {
+	lastSyncedAt: number | null;
+}
+
+/**
+ * Load workspace info from localStorage
+ */
+export function loadWorkspace(): WorkspaceInfo | null {
+	if (!isBrowser()) {
+		return null;
+	}
+
+	try {
+		const stored = localStorage.getItem(WORKSPACE_KEY);
+		if (!stored) return null;
+		return JSON.parse(stored) as WorkspaceInfo;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Save workspace info to localStorage
+ */
+export function saveWorkspace(workspace: WorkspaceInfo): void {
+	if (!isBrowser()) {
+		return;
+	}
+
+	try {
+		localStorage.setItem(WORKSPACE_KEY, JSON.stringify(workspace));
+	} catch (error) {
+		console.error('Failed to save workspace:', error);
+	}
+}
+
+/**
+ * Clear workspace info
+ */
+export function clearWorkspace(): void {
+	if (!isBrowser()) {
+		return;
+	}
+
+	localStorage.removeItem(WORKSPACE_KEY);
+}
+
+/**
+ * Load sync metadata
+ */
+export function loadSyncMeta(): SyncMeta {
+	if (!isBrowser()) {
+		return { lastSyncedAt: null };
+	}
+
+	try {
+		const stored = localStorage.getItem(SYNC_META_KEY);
+		if (!stored) return { lastSyncedAt: null };
+		return JSON.parse(stored) as SyncMeta;
+	} catch {
+		return { lastSyncedAt: null };
+	}
+}
+
+/**
+ * Save sync metadata
+ */
+export function saveSyncMeta(meta: SyncMeta): void {
+	if (!isBrowser()) {
+		return;
+	}
+
+	try {
+		localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta));
+	} catch (error) {
+		console.error('Failed to save sync meta:', error);
+	}
+}
+
+/**
+ * Load extended state with workspace and sync info
+ */
+export function loadExtendedState(): ExtendedAppState {
+	const appState = loadState();
+	const workspace = loadWorkspace();
+	const syncMeta = loadSyncMeta();
+
+	return {
+		...appState,
+		workspace,
+		syncStatus: workspace ? 'offline' : 'offline',
+		lastSyncedAt: syncMeta.lastSyncedAt,
+		pendingChanges: []
+	};
 }
