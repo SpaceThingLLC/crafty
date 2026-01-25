@@ -13,7 +13,6 @@
 	import { appState } from '$lib/state.svelte';
 	import { downloadState, importState } from '$lib/storage';
 	import { toaster } from '$lib/toaster.svelte';
-	import { isSupabaseConfigured } from '$lib/db';
 	import type { LaborRateUnit, WorkspaceInfo } from '$lib/types';
 	import { getLaborRateUnitLabel } from '$lib/calculator';
 
@@ -27,14 +26,6 @@
 	// Initialize sync on mount
 	onMount(async () => {
 		await appState.initializeSync();
-
-		// If no workspace and Supabase is configured, prompt to create one
-		if (!appState.workspace && isSupabaseConfigured()) {
-			// Give user a moment to see the app first
-			setTimeout(() => {
-				workspaceSetupOpen = true;
-			}, 1000);
-		}
 	});
 
 	function handleWorkspaceCreated(workspace: WorkspaceInfo) {
@@ -153,9 +144,11 @@
 		target.value = '';
 	}
 
-	function handleSetupComplete(projectId: string) {
-		selectedProjectId = projectId;
-		appState.setLastSelectedProjectId(projectId);
+	function handleSetupComplete(projectId: string | null) {
+		if (projectId) {
+			selectedProjectId = projectId;
+			appState.setLastSelectedProjectId(projectId);
+		}
 		activeTab = 'calculator';
 	}
 </script>
