@@ -55,6 +55,13 @@
 	let projectSearchValue = $state('');
 	let projectItems = $state(appState.projects);
 
+	// Recent projects for quick selection (most recently updated first)
+	let recentProjects = $derived(
+		[...appState.projects]
+			.sort((a, b) => b.updatedAt - a.updatedAt)
+			.slice(0, 5)
+	);
+
 	// Material selector state
 	let materialSearchValue = $state('');
 	let materialItems = $state<Material[]>([]);
@@ -108,6 +115,15 @@
 			if (selected) {
 				projectSearchValue = selected.name;
 			}
+		}
+	}
+
+	// Select project from recent projects list
+	function selectProject(projectId: string) {
+		internalSelectedId = projectId;
+		const proj = appState.getProject(projectId);
+		if (proj) {
+			projectSearchValue = proj.name;
 		}
 	}
 
@@ -227,6 +243,24 @@
 					</Combobox.Positioner>
 				</Portal>
 			</Combobox>
+
+			<!-- Recent Projects -->
+			{#if recentProjects.length > 1}
+				<div class="mt-3">
+					<span class="text-xs text-surface-500 mb-2 block">Recent:</span>
+					<div class="flex flex-wrap gap-2">
+						{#each recentProjects as proj (proj.id)}
+							<button
+								type="button"
+								class="chip {proj.id === internalSelectedId ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
+								onclick={() => selectProject(proj.id)}
+							>
+								{proj.name}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		{/if}
 	</div>
 

@@ -61,6 +61,13 @@
 		if (lastId) {
 			appState.setLastSelectedProjectId(null);
 		}
+		// Auto-select most recently updated project (consistent with Recent Projects in Calculator)
+		if (appState.projects.length > 0) {
+			const sorted = [...appState.projects].sort((a, b) => b.updatedAt - a.updatedAt);
+			const id = sorted[0].id;
+			appState.setLastSelectedProjectId(id);
+			return id;
+		}
 		return null;
 	}
 
