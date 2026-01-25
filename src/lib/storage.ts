@@ -2,7 +2,8 @@ import type { AppState } from './types';
 import { DEFAULT_STATE, DEFAULT_SETTINGS } from './types';
 import { AppStateSchema, type ValidationResult, formatValidationErrors } from './schemas';
 
-const STORAGE_KEY = 'crafty-app-state';
+const STORAGE_KEY = 'pricemycraft-app-state';
+const LEGACY_STORAGE_KEY = 'crafty-app-state';
 
 /**
  * Check if we're in a browser environment
@@ -45,7 +46,8 @@ function migrateState(data: unknown): unknown {
 }
 
 /**
- * Load state from localStorage with validation
+ * Load state from localStorage with validation.
+ * Includes migration from legacy storage key (crafty-app-state) to new key (pricemycraft-app-state).
  */
 export function loadState(): AppState {
 	if (!isBrowser()) {
@@ -53,7 +55,21 @@ export function loadState(): AppState {
 	}
 
 	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
+		// Check for data under new key first
+		let stored = localStorage.getItem(STORAGE_KEY);
+
+		// If no data under new key, check for legacy data and migrate
+		if (!stored) {
+			const legacyStored = localStorage.getItem(LEGACY_STORAGE_KEY);
+			if (legacyStored) {
+				// Migrate: copy to new key and remove old key
+				localStorage.setItem(STORAGE_KEY, legacyStored);
+				localStorage.removeItem(LEGACY_STORAGE_KEY);
+				stored = legacyStored;
+				console.info('Migrated data from legacy storage key');
+			}
+		}
+
 		if (!stored) {
 			return DEFAULT_STATE;
 		}
@@ -94,7 +110,7 @@ export function saveState(state: AppState): void {
 }
 
 /**
- * Clear all stored state
+ * Clear all stored state (including any legacy storage key)
  */
 export function clearState(): void {
 	if (!isBrowser()) {
@@ -102,6 +118,7 @@ export function clearState(): void {
 	}
 
 	localStorage.removeItem(STORAGE_KEY);
+	localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
 /**
@@ -155,7 +172,7 @@ export function downloadState(state: AppState): void {
 
 	const a = document.createElement('a');
 	a.href = url;
-	a.download = `crafty-backup-${new Date().toISOString().split('T')[0]}.json`;
+	a.download = `pricemycraft-backup-${new Date().toISOString().split('T')[0]}.json`;
 	document.body.appendChild(a);
 	a.click();
 	document.body.removeChild(a);

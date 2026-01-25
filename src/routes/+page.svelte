@@ -114,14 +114,14 @@
 </script>
 
 <svelte:head>
-	<title>Crafty - Craft Cost Calculator</title>
+	<title>PriceMyCraft - Craft Cost Calculator</title>
 </svelte:head>
 
 <main class="container mx-auto p-4 max-w-4xl">
 	<!-- Header -->
 	<header class="mb-6">
 		<div class="text-center sm:text-left">
-			<h1 class="text-4xl font-bold">Crafty</h1>
+			<h1 class="text-4xl font-bold">PriceMyCraft</h1>
 			<p class="text-surface-600-400">Craft Cost Calculator</p>
 		</div>
 	</header>
