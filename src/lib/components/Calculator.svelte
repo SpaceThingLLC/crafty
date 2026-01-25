@@ -80,7 +80,7 @@
 		const filtered = appState.projects.filter((p) =>
 			p.name.toLowerCase().includes(event.inputValue.toLowerCase())
 		);
-		projectItems = filtered.length > 0 ? filtered : appState.projects;
+		projectItems = filtered;
 		projectSearchValue = event.inputValue;
 	}
 
@@ -106,7 +106,7 @@
 		const filtered = availableMaterials.filter((m) =>
 			m.name.toLowerCase().includes(event.inputValue.toLowerCase())
 		);
-		materialItems = filtered.length > 0 ? filtered : availableMaterials;
+		materialItems = filtered;
 		materialSearchValue = event.inputValue;
 	}
 
@@ -126,8 +126,13 @@
 	function handleQuantityChange(materialId: string, e: Event) {
 		const target = e.target as HTMLInputElement;
 		const quantity = parseFloat(target.value);
-		if (!isNaN(quantity) && quantity >= 0 && internalSelectedId) {
-			appState.updateProjectMaterial(internalSelectedId, materialId, quantity);
+		if (!isNaN(quantity) && internalSelectedId) {
+			if (quantity <= 0) {
+				// Remove material when quantity is zero or negative
+				appState.removeProjectMaterial(internalSelectedId, materialId);
+			} else {
+				appState.updateProjectMaterial(internalSelectedId, materialId, quantity);
+			}
 		}
 	}
 
@@ -263,7 +268,7 @@
 										class="input w-20 text-center"
 										value={pm.quantity}
 										oninput={(e) => handleQuantityChange(pm.materialId, e)}
-										min="0"
+										min="0.1"
 										step="0.1"
 									/>
 									<span class="text-surface-600-400 text-sm">{material.unit}</span>
