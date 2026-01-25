@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
 	import Cloud from '@lucide/svelte/icons/cloud';
 	import Plus from '@lucide/svelte/icons/plus';
@@ -21,7 +22,15 @@
 	let confirmPassphrase = $state('');
 	let isCreating = $state(false);
 
-	const isConfigured = isSupabaseConfigured();
+	// Check Supabase config on client-side only to avoid SSR timing issues
+	// During pre-rendering, import.meta.env.PUBLIC_* values aren't available
+	let isConfigured = $state(false);
+	let hasCheckedConfig = $state(false);
+
+	onMount(() => {
+		isConfigured = isSupabaseConfigured();
+		hasCheckedConfig = true;
+	});
 
 	function handleOpenChange(details: { open: boolean }) {
 		open = details.open;
@@ -103,7 +112,12 @@
 		<Dialog.Backdrop class="fixed inset-0 bg-black/50 z-40" />
 		<Dialog.Positioner class="fixed inset-0 flex items-center justify-center z-50 p-4">
 			<Dialog.Content class="card preset-tonal-surface p-6 max-w-md w-full">
-				{#if !isConfigured}
+				{#if !hasCheckedConfig}
+					<!-- Loading state while checking config on client -->
+					<div class="flex items-center justify-center p-4">
+						<span class="text-surface-500">Loading...</span>
+					</div>
+				{:else if !isConfigured}
 					<Dialog.Title class="text-lg font-bold mb-2 flex items-center gap-2">
 						<Cloud size={20} />
 						Cloud Sync Not Available
