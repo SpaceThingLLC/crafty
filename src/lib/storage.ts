@@ -1,5 +1,6 @@
 import type { AppState } from './types';
-import { DEFAULT_STATE } from './types';
+import { DEFAULT_STATE, DEFAULT_SETTINGS } from './types';
+import { AppStateSchema, type ValidationResult, formatValidationErrors } from './schemas';
 
 const STORAGE_KEY = 'crafty-app-state';
 
@@ -11,7 +12,40 @@ function isBrowser(): boolean {
 }
 
 /**
- * Load state from localStorage
+ * Migrate data from older versions to the current schema format.
+ * This ensures backward compatibility when the schema evolves.
+ */
+function migrateState(data: unknown): unknown {
+	if (typeof data !== 'object' || data === null) {
+		return data;
+	}
+
+	const obj = data as Record<string, unknown>;
+
+	// Migrate settings - merge with defaults for any missing fields
+	const settings = typeof obj.settings === 'object' && obj.settings !== null
+		? { ...DEFAULT_SETTINGS, ...(obj.settings as Record<string, unknown>) }
+		: DEFAULT_SETTINGS;
+
+	// Migrate lastSelectedProjectId - convert undefined to null
+	const lastSelectedProjectId = obj.lastSelectedProjectId ?? null;
+
+	// Migrate materials array - ensure it exists
+	const materials = Array.isArray(obj.materials) ? obj.materials : [];
+
+	// Migrate projects array - ensure it exists
+	const projects = Array.isArray(obj.projects) ? obj.projects : [];
+
+	return {
+		settings,
+		materials,
+		projects,
+		lastSelectedProjectId
+	};
+}
+
+/**
+ * Load state from localStorage with validation
  */
 export function loadState(): AppState {
 	if (!isBrowser()) {
@@ -24,15 +58,20 @@ export function loadState(): AppState {
 			return DEFAULT_STATE;
 		}
 
-		const parsed = JSON.parse(stored) as Partial<AppState>;
+		const parsed = JSON.parse(stored);
+		const migrated = migrateState(parsed);
+		const result = AppStateSchema.safeParse(migrated);
 
-		// Merge with defaults to handle missing properties from older versions
-		return {
-			settings: { ...DEFAULT_STATE.settings, ...parsed.settings },
-			materials: parsed.materials ?? DEFAULT_STATE.materials,
-			projects: parsed.projects ?? DEFAULT_STATE.projects,
-			lastSelectedProjectId: parsed.lastSelectedProjectId ?? null
-		};
+		if (result.success) {
+			return result.data;
+		}
+
+		// Log validation errors for debugging
+		console.warn(
+			'Invalid stored state, using defaults. Errors:',
+			formatValidationErrors(result.error.issues)
+		);
+		return DEFAULT_STATE;
 	} catch (error) {
 		console.error('Failed to load state from localStorage:', error);
 		return DEFAULT_STATE;
@@ -73,18 +112,33 @@ export function exportState(state: AppState): string {
 }
 
 /**
- * Import state from a JSON string
+ * Import state from a JSON string with validation
+ * Returns a validation result with either the valid data or detailed errors
  */
-export function importState(jsonString: string): AppState {
-	const parsed = JSON.parse(jsonString) as Partial<AppState>;
+export function importState(jsonString: string): ValidationResult<AppState> {
+	try {
+		const parsed = JSON.parse(jsonString);
+		const migrated = migrateState(parsed);
+		const result = AppStateSchema.safeParse(migrated);
 
-	// Validate and merge with defaults
-	return {
-		settings: { ...DEFAULT_STATE.settings, ...parsed.settings },
-		materials: Array.isArray(parsed.materials) ? parsed.materials : DEFAULT_STATE.materials,
-		projects: Array.isArray(parsed.projects) ? parsed.projects : DEFAULT_STATE.projects,
-		lastSelectedProjectId: parsed.lastSelectedProjectId ?? null
-	};
+		if (result.success) {
+			return { success: true, data: result.data };
+		}
+
+		return { success: false, errors: result.error.issues };
+	} catch (error) {
+		// Handle JSON parse errors
+		return {
+			success: false,
+			errors: [
+				{
+					code: 'custom',
+					path: [],
+					message: error instanceof Error ? `Invalid JSON: ${error.message}` : 'Invalid JSON format'
+				}
+			]
+		};
+	}
 }
 
 /**

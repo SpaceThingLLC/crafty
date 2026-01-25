@@ -1,58 +1,42 @@
+import { z } from 'zod';
+import {
+	MaterialSchema,
+	ProjectMaterialSchema,
+	ProjectSchema,
+	LaborRateUnitSchema,
+	SettingsSchema,
+	AppStateSchema
+} from './schemas';
+
 /**
  * A material in the shared materials library
  */
-export interface Material {
-	id: string;
-	name: string;
-	unitCost: number;
-	unit: string;
-	notes?: string;
-}
+export type Material = z.infer<typeof MaterialSchema>;
 
 /**
  * A material assignment within a project
  */
-export interface ProjectMaterial {
-	materialId: string;
-	quantity: number;
-}
+export type ProjectMaterial = z.infer<typeof ProjectMaterialSchema>;
 
 /**
  * A craft project with materials and labor time
  */
-export interface Project {
-	id: string;
-	name: string;
-	materials: ProjectMaterial[];
-	laborMinutes: number;
-	createdAt: number;
-	updatedAt: number;
-}
+export type Project = z.infer<typeof ProjectSchema>;
 
 /**
  * Labor rate unit options
  */
-export type LaborRateUnit = 'hour' | 'minute' | '15min';
+export type LaborRateUnit = z.infer<typeof LaborRateUnitSchema>;
 
 /**
  * Application settings
  */
-export interface Settings {
-	currencySymbol: string;
-	laborRate: number;
-	laborRateUnit: LaborRateUnit;
-	laborRatePromptDismissed?: boolean;
-}
+export type Settings = z.infer<typeof SettingsSchema>;
 
 /**
  * Complete application state
  */
-export interface AppState {
-	settings: Settings;
-	materials: Material[];
-	projects: Project[];
-	lastSelectedProjectId: string | null;
-}
+export type AppState = z.infer<typeof AppStateSchema>;
 
 /**
  * Default settings for new installations

@@ -5,6 +5,7 @@
 	import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { appState } from '$lib/state.svelte';
 	import { downloadState, importState } from '$lib/storage';
+	import { formatValidationErrors } from '$lib/schemas';
 	import { toaster } from '$lib/toaster.svelte';
 	import type { LaborRateUnit } from '$lib/types';
 	import { getLaborRateUnitLabel } from '$lib/calculator';
@@ -65,16 +66,31 @@
 
 		try {
 			const text = await file.text();
-			const newState = importState(text);
-			appState.importState(newState);
-			toaster.success({
-				title: 'Import Successful',
-				description: 'Data imported successfully!'
-			});
+			const result = importState(text);
+
+			if (result.success) {
+				appState.importState(result.data);
+				toaster.success({
+					title: 'Import Successful',
+					description: 'Data imported successfully!'
+				});
+			} else {
+				const errorMessages = formatValidationErrors(result.errors);
+				const displayMessage =
+					errorMessages.length > 3
+						? `${errorMessages.slice(0, 3).join('\n')}... and ${errorMessages.length - 3} more`
+						: errorMessages.join('\n');
+
+				toaster.error({
+					title: 'Invalid Data Format',
+					description: displayMessage
+				});
+				console.error('Import validation errors:', errorMessages);
+			}
 		} catch (error) {
 			toaster.error({
 				title: 'Import Failed',
-				description: 'Failed to import data. Please check the file format.'
+				description: 'Failed to read the file. Please check the file format.'
 			});
 			console.error('Import error:', error);
 		}
