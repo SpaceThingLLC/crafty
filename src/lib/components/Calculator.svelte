@@ -18,10 +18,10 @@
 	interface Props {
 		selectedProjectId: string | null;
 		ongotoprojects: () => void;
-		onopensettings: () => void;
+		ongotosettings: () => void;
 	}
 
-	let { selectedProjectId, ongotoprojects, onopensettings }: Props = $props();
+	let { selectedProjectId, ongotoprojects, ongotosettings }: Props = $props();
 
 	// Check if using default labor rate and prompt not dismissed
 	let showLaborRatePrompt = $derived(
@@ -358,7 +358,7 @@
 				<div class="p-3 bg-warning-500/10 border border-warning-500/30 rounded-lg mb-4 flex items-center justify-between gap-2">
 					<p class="text-sm text-warning-700 dark:text-warning-300">
 						Using default labor rate.
-						<button type="button" class="underline font-medium hover:no-underline" onclick={onopensettings}>
+						<button type="button" class="underline font-medium hover:no-underline" onclick={ongotosettings}>
 							Set your rate in Settings
 						</button>
 					</p>
