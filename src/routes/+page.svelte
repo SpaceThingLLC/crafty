@@ -1,17 +1,49 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Download from '@lucide/svelte/icons/download';
 	import Upload from '@lucide/svelte/icons/upload';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import Calculator from '$lib/components/Calculator.svelte';
 	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
 	import ProjectList from '$lib/components/ProjectList.svelte';
+	import SyncStatus from '$lib/components/SyncStatus.svelte';
+	import WorkspaceSetup from '$lib/components/WorkspaceSetup.svelte';
+	import PassphraseModal from '$lib/components/PassphraseModal.svelte';
 	import { appState } from '$lib/state.svelte';
 	import { downloadState, importState } from '$lib/storage';
 	import { toaster } from '$lib/toaster.svelte';
-	import type { LaborRateUnit } from '$lib/types';
+	import { isSupabaseConfigured } from '$lib/db';
+	import type { LaborRateUnit, WorkspaceInfo } from '$lib/types';
 	import { getLaborRateUnitLabel } from '$lib/calculator';
 
 	let activeTab = $state('calculator');
+	let workspaceSetupOpen = $state(false);
+	let passphraseModalOpen = $state(false);
+
+	// Initialize sync on mount
+	onMount(async () => {
+		await appState.initializeSync();
+
+		// If no workspace and Supabase is configured, prompt to create one
+		if (!appState.workspace && isSupabaseConfigured()) {
+			// Give user a moment to see the app first
+			setTimeout(() => {
+				workspaceSetupOpen = true;
+			}, 1000);
+		}
+	});
+
+	function handleWorkspaceCreated(workspace: WorkspaceInfo) {
+		appState.setWorkspace(workspace);
+		// Sync initial data to the new workspace
+		appState.sync();
+	}
+
+	function handlePassphraseVerified(passphrase: string) {
+		appState.updatePassphrase(passphrase);
+		// Refresh data from remote
+		appState.pull();
+	}
 
 	// Initialize from persisted state, validating project still exists.
 	// Note: This function intentionally has a side effect - if the persisted project
@@ -120,9 +152,18 @@
 <main class="container mx-auto p-4 max-w-4xl">
 	<!-- Header -->
 	<header class="mb-6">
-		<div class="text-center sm:text-left">
-			<h1 class="text-4xl font-bold">Crafty</h1>
-			<p class="text-surface-600-400">Craft Cost Calculator</p>
+		<div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+			<div class="text-center sm:text-left">
+				<h1 class="text-4xl font-bold">Crafty</h1>
+				<p class="text-surface-600-400">Craft Cost Calculator</p>
+			</div>
+			<SyncStatus
+				status={appState.syncStatus}
+				workspace={appState.workspace}
+				lastSyncedAt={appState.lastSyncedAt}
+				onsync={() => appState.sync()}
+				onunlock={() => (passphraseModalOpen = true)}
+			/>
 		</div>
 	</header>
 
@@ -218,3 +259,18 @@
 		</Tabs.Content>
 	</Tabs>
 </main>
+
+<!-- Workspace Setup Modal -->
+<WorkspaceSetup
+	bind:open={workspaceSetupOpen}
+	oncreate={handleWorkspaceCreated}
+/>
+
+<!-- Passphrase Modal -->
+{#if appState.workspace}
+	<PassphraseModal
+		bind:open={passphraseModalOpen}
+		workspaceId={appState.workspace.id}
+		onverified={handlePassphraseVerified}
+	/>
+{/if}
