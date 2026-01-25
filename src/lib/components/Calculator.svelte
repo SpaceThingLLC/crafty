@@ -285,13 +285,14 @@
 											type="button"
 											class="btn-icon btn-sm preset-tonal-surface"
 											onclick={() => decrementQuantity(pm.materialId, pm.quantity)}
+											disabled={pm.quantity <= 0.1}
 											aria-label="Decrease quantity"
 										>
 											<Minus size={14} />
 										</button>
 										<input
 											type="number"
-											class="input w-16 text-center"
+											class="input w-20 text-center"
 											value={pm.quantity}
 											oninput={(e) => handleQuantityChange(pm.materialId, e)}
 											min="0.1"
