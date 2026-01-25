@@ -40,6 +40,10 @@
 	});
 
 	function handleWorkspaceCreated(workspace: WorkspaceInfo) {
+		// If creating from view-only mode, start fresh instead of forking
+		if (appState.workspace && !appState.canEdit) {
+			appState.resetState();
+		}
 		appState.setWorkspace(workspace);
 		// Sync initial data to the new workspace
 		appState.sync();
