@@ -3,6 +3,7 @@
 	import Package from '@lucide/svelte/icons/package';
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import Check from '@lucide/svelte/icons/check';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import { appState } from '$lib/state.svelte';
@@ -115,9 +116,12 @@
 	</div>
 
 	<!-- Progress Steps -->
-	<div class="flex items-center gap-2 mb-8">
+	<nav aria-label="Setup progress" class="flex items-center gap-2 mb-8">
 		{#each steps as step}
-			<div class="flex items-center gap-2">
+			<div
+				class="flex items-center gap-2"
+				aria-current={currentStep === step.number ? 'step' : undefined}
+			>
 				<div
 					class="w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all
 						{currentStep > step.number
@@ -125,21 +129,27 @@
 							: currentStep === step.number
 								? 'bg-primary-500 text-white'
 								: 'bg-surface-200-800 text-surface-600-400'}"
+					aria-label="Step {step.number}: {step.title}{currentStep > step.number ? ' (completed)' : currentStep === step.number ? ' (current)' : ''}"
 				>
 					{#if currentStep > step.number}
-						<Check size={20} />
+						<Check size={20} aria-hidden="true" />
 					{:else}
 						{@const Icon = step.icon}
-						<Icon size={20} />
+						<Icon size={20} aria-hidden="true" />
 					{/if}
 				</div>
-				<span class="text-sm font-medium hidden sm:inline {currentStep >= step.number ? 'text-surface-900-100' : 'text-surface-500'}">{step.title}</span>
+				<span
+					class="text-sm font-medium hidden sm:inline
+						{currentStep >= step.number ? 'text-surface-900-100' : 'text-surface-500'}"
+				>
+					{step.title}
+				</span>
 				{#if step.number < 3}
-					<ChevronRight size={16} class="text-surface-400 mx-1" />
+					<ChevronRight size={16} class="text-surface-400 mx-1" aria-hidden="true" />
 				{/if}
 			</div>
 		{/each}
-	</div>
+	</nav>
 
 	<!-- Step Content -->
 	<div class="card preset-outlined-surface-500 w-full max-w-md p-6">
@@ -228,10 +238,16 @@
 					You can add more materials later from the Materials tab
 				</p>
 
-				<button type="button" class="btn preset-filled-primary-500 w-full mt-4" onclick={handleStep2Next}>
-					<span>Next: Create Your First Project</span>
-					<ChevronRight size={18} />
-				</button>
+				<div class="flex gap-2 mt-4">
+					<button type="button" class="btn preset-tonal-surface" onclick={() => currentStep = 1}>
+						<ChevronLeft size={18} />
+						<span>Back</span>
+					</button>
+					<button type="button" class="btn preset-filled-primary-500 flex-1" onclick={handleStep2Next}>
+						<span>Next: Create Your First Project</span>
+						<ChevronRight size={18} />
+					</button>
+				</div>
 			</div>
 
 		{:else if currentStep === 3}
@@ -264,10 +280,16 @@
 					Your material "{materialName}" will be added to this project
 				</p>
 
-				<button type="button" class="btn preset-filled-success-500 w-full mt-4" onclick={handleStep3Complete}>
-					<Sparkles size={18} />
-					<span>Get Started!</span>
-				</button>
+				<div class="flex gap-2 mt-4">
+					<button type="button" class="btn preset-tonal-surface" onclick={() => currentStep = 2}>
+						<ChevronLeft size={18} />
+						<span>Back</span>
+					</button>
+					<button type="button" class="btn preset-filled-success-500 flex-1" onclick={handleStep3Complete}>
+						<Sparkles size={18} />
+						<span>Get Started!</span>
+					</button>
+				</div>
 			</div>
 		{/if}
 	</div>
