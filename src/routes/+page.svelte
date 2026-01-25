@@ -5,18 +5,40 @@
 	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
 	import ProjectList from '$lib/components/ProjectList.svelte';
 	import SettingsDrawer from '$lib/components/SettingsDrawer.svelte';
+	import { appState } from '$lib/state.svelte';
 
 	let activeTab = $state('calculator');
 	let settingsOpen = $state(false);
-	let selectedProjectId = $state<string | null>(null);
+
+	// Initialize from persisted state, validating project still exists.
+	// Note: This function intentionally has a side effect - if the persisted project
+	// no longer exists (was deleted), we clear the stale reference. This is safe because
+	// localStorage loads synchronously and this runs once during module initialization.
+	function getInitialProjectId(): string | null {
+		const lastId = appState.lastSelectedProjectId;
+		if (lastId && appState.getProject(lastId)) {
+			return lastId;
+		}
+		if (lastId) {
+			appState.setLastSelectedProjectId(null);
+		}
+		return null;
+	}
+
+	let selectedProjectId = $state<string | null>(getInitialProjectId());
 
 	function handleProjectSelect(projectId: string) {
 		selectedProjectId = projectId;
+		appState.setLastSelectedProjectId(projectId);
 		activeTab = 'calculator';
 	}
 
 	function switchToProjects() {
 		activeTab = 'projects';
+	}
+
+	function openSettings() {
+		settingsOpen = true;
 	}
 </script>
 
@@ -49,7 +71,7 @@
 		</Tabs.List>
 
 		<Tabs.Content value="calculator">
-			<Calculator {selectedProjectId} ongotoprojects={switchToProjects} />
+			<Calculator {selectedProjectId} ongotoprojects={switchToProjects} onopensettings={openSettings} />
 		</Tabs.Content>
 
 		<Tabs.Content value="materials">
@@ -60,11 +82,6 @@
 			<ProjectList onselectproject={handleProjectSelect} />
 		</Tabs.Content>
 	</Tabs>
-
-	<!-- Footer -->
-	<footer class="mt-8 pt-4 border-t border-surface-300-700 text-center text-sm text-surface-500">
-		<p>Data saved locally. Open Settings to export a backup.</p>
-	</footer>
 </main>
 
 <SettingsDrawer bind:open={settingsOpen} />

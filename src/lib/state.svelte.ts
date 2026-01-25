@@ -31,6 +31,9 @@ function createAppState() {
 		get projects() {
 			return state.projects;
 		},
+		get lastSelectedProjectId() {
+			return state.lastSelectedProjectId;
+		},
 		get state() {
 			return state;
 		},
@@ -169,6 +172,13 @@ function createAppState() {
 			state.settings = newState.settings;
 			state.materials = newState.materials;
 			state.projects = newState.projects;
+			state.lastSelectedProjectId = newState.lastSelectedProjectId;
+			persist();
+		},
+
+		// Last selected project
+		setLastSelectedProjectId(id: string | null) {
+			state.lastSelectedProjectId = id;
 			persist();
 		},
 
@@ -176,6 +186,7 @@ function createAppState() {
 			state.settings = DEFAULT_SETTINGS;
 			state.materials = [];
 			state.projects = [];
+			state.lastSelectedProjectId = null;
 			persist();
 		}
 	};

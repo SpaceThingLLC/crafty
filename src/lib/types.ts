@@ -41,6 +41,7 @@ export interface Settings {
 	currencySymbol: string;
 	laborRate: number;
 	laborRateUnit: LaborRateUnit;
+	laborRatePromptDismissed?: boolean;
 }
 
 /**
@@ -50,6 +51,7 @@ export interface AppState {
 	settings: Settings;
 	materials: Material[];
 	projects: Project[];
+	lastSelectedProjectId: string | null;
 }
 
 /**
@@ -67,5 +69,6 @@ export const DEFAULT_SETTINGS: Settings = {
 export const DEFAULT_STATE: AppState = {
 	settings: DEFAULT_SETTINGS,
 	materials: [],
-	projects: []
+	projects: [],
+	lastSelectedProjectId: null
 };
