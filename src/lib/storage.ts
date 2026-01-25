@@ -30,7 +30,8 @@ export function loadState(): AppState {
 		return {
 			settings: { ...DEFAULT_STATE.settings, ...parsed.settings },
 			materials: parsed.materials ?? DEFAULT_STATE.materials,
-			projects: parsed.projects ?? DEFAULT_STATE.projects
+			projects: parsed.projects ?? DEFAULT_STATE.projects,
+			lastSelectedProjectId: parsed.lastSelectedProjectId ?? null
 		};
 	} catch (error) {
 		console.error('Failed to load state from localStorage:', error);
@@ -81,7 +82,8 @@ export function importState(jsonString: string): AppState {
 	return {
 		settings: { ...DEFAULT_STATE.settings, ...parsed.settings },
 		materials: Array.isArray(parsed.materials) ? parsed.materials : DEFAULT_STATE.materials,
-		projects: Array.isArray(parsed.projects) ? parsed.projects : DEFAULT_STATE.projects
+		projects: Array.isArray(parsed.projects) ? parsed.projects : DEFAULT_STATE.projects,
+		lastSelectedProjectId: parsed.lastSelectedProjectId ?? null
 	};
 }
 

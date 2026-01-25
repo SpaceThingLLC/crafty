@@ -13,13 +13,26 @@
 		getLaborRateUnitLabel
 	} from '$lib/calculator';
 	import type { Material } from '$lib/types';
+	import { DEFAULT_SETTINGS } from '$lib/types';
 
 	interface Props {
 		selectedProjectId: string | null;
 		ongotoprojects: () => void;
+		onopensettings: () => void;
 	}
 
-	let { selectedProjectId, ongotoprojects }: Props = $props();
+	let { selectedProjectId, ongotoprojects, onopensettings }: Props = $props();
+
+	// Check if using default labor rate and prompt not dismissed
+	let showLaborRatePrompt = $derived(
+		appState.settings.laborRate === DEFAULT_SETTINGS.laborRate &&
+		appState.settings.laborRateUnit === DEFAULT_SETTINGS.laborRateUnit &&
+		!appState.settings.laborRatePromptDismissed
+	);
+
+	function dismissLaborRatePrompt() {
+		appState.updateSettings({ laborRatePromptDismissed: true });
+	}
 
 	// Internal selected project state - synced with prop
 	let internalSelectedId = $state<string | null>(null);
@@ -279,7 +292,6 @@
 							{#if material}
 								<li class="flex items-center gap-3 p-2 bg-surface-100-900 rounded">
 									<span class="flex-1 font-medium">{material.name}</span>
-									<span class="text-surface-600-400">×</span>
 									<div class="flex items-center gap-1">
 										<button
 											type="button"
@@ -340,6 +352,26 @@
 					/>
 				</label>
 			</div>
+
+			<!-- Labor Rate Prompt -->
+			{#if showLaborRatePrompt}
+				<div class="p-3 bg-warning-500/10 border border-warning-500/30 rounded-lg mb-4 flex items-center justify-between gap-2">
+					<p class="text-sm text-warning-700 dark:text-warning-300">
+						Using default labor rate.
+						<button type="button" class="underline font-medium hover:no-underline" onclick={onopensettings}>
+							Set your rate in Settings
+						</button>
+					</p>
+					<button
+						type="button"
+						class="btn-icon btn-sm preset-tonal-surface flex-shrink-0"
+						onclick={dismissLaborRatePrompt}
+						aria-label="Dismiss"
+					>
+						<X size={14} />
+					</button>
+				</div>
+			{/if}
 
 			<!-- Cost Summary -->
 			<div class="border-t border-surface-300-700 pt-4 space-y-2">
