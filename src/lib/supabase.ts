@@ -1,8 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-// Environment variables - these are public and safe for client-side
-const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string;
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 
 let supabaseClient: SupabaseClient | null = null;
 
@@ -10,7 +7,7 @@ let supabaseClient: SupabaseClient | null = null;
  * Check if Supabase is configured
  */
 export function isSupabaseConfigured(): boolean {
-	return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+	return Boolean(PUBLIC_SUPABASE_URL && PUBLIC_SUPABASE_ANON_KEY);
 }
 
 /**
@@ -23,7 +20,7 @@ export function getSupabase(): SupabaseClient | null {
 	}
 
 	if (!supabaseClient) {
-		supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+		supabaseClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
 			auth: {
 				persistSession: false, // We're using passphrase auth, not Supabase auth
 				autoRefreshToken: false
