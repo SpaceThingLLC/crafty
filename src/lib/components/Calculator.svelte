@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Minus from '@lucide/svelte/icons/minus';
+	import Plus from '@lucide/svelte/icons/plus';
 	import X from '@lucide/svelte/icons/x';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { appState } from '$lib/state.svelte';
@@ -136,6 +138,21 @@
 		}
 	}
 
+	// Decrement material quantity (minimum 0.1)
+	function decrementQuantity(materialId: string, currentQty: number) {
+		const newQty = Math.max(0.1, currentQty - 1);
+		if (internalSelectedId) {
+			appState.updateProjectMaterial(internalSelectedId, materialId, newQty);
+		}
+	}
+
+	// Increment material quantity
+	function incrementQuantity(materialId: string, currentQty: number) {
+		if (internalSelectedId) {
+			appState.updateProjectMaterial(internalSelectedId, materialId, currentQty + 1);
+		}
+	}
+
 	// Remove material from project
 	function handleRemoveMaterial(materialId: string) {
 		if (internalSelectedId) {
@@ -263,14 +280,33 @@
 								<li class="flex items-center gap-3 p-2 bg-surface-100-900 rounded">
 									<span class="flex-1 font-medium">{material.name}</span>
 									<span class="text-surface-600-400">×</span>
-									<input
-										type="number"
-										class="input w-20 text-center"
-										value={pm.quantity}
-										oninput={(e) => handleQuantityChange(pm.materialId, e)}
-										min="0.1"
-										step="0.1"
-									/>
+									<div class="flex items-center gap-1">
+										<button
+											type="button"
+											class="btn-icon btn-sm preset-tonal-surface"
+											onclick={() => decrementQuantity(pm.materialId, pm.quantity)}
+											disabled={pm.quantity <= 0.1}
+											aria-label="Decrease quantity"
+										>
+											<Minus size={14} />
+										</button>
+										<input
+											type="number"
+											class="input w-20 text-center"
+											value={pm.quantity}
+											oninput={(e) => handleQuantityChange(pm.materialId, e)}
+											min="0.1"
+											step="0.1"
+										/>
+										<button
+											type="button"
+											class="btn-icon btn-sm preset-tonal-surface"
+											onclick={() => incrementQuantity(pm.materialId, pm.quantity)}
+											aria-label="Increase quantity"
+										>
+											<Plus size={14} />
+										</button>
+									</div>
 									<span class="text-surface-600-400 text-sm">{material.unit}</span>
 									<span class="w-20 text-right font-medium">
 										{formatCurrency(calculateMaterialCost(pm, appState.materials), appState.settings.currencySymbol)}
