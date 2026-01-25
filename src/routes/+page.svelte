@@ -85,12 +85,22 @@
 
 		try {
 			const text = await file.text();
-			const newState = importState(text);
-			appState.importState(newState);
-			toaster.success({
-				title: 'Import Successful',
-				description: 'Data imported successfully!'
-			});
+			const result = importState(text);
+
+			if (result.success) {
+				appState.importState(result.data);
+				toaster.success({
+					title: 'Import Successful',
+					description: 'Data imported successfully!'
+				});
+			} else {
+				const errorMessages = result.errors.map((e) => e.message).join(', ');
+				toaster.error({
+					title: 'Import Failed',
+					description: `Validation failed: ${errorMessages}`
+				});
+				console.error('Import validation errors:', result.errors);
+			}
 		} catch (error) {
 			toaster.error({
 				title: 'Import Failed',
