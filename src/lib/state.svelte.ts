@@ -1,6 +1,7 @@
-import { loadState, saveState } from './storage';
-import type { AppState, Material, Project, Settings } from './types';
+import { loadState, saveState, loadWorkspace, saveWorkspace, saveSyncMeta } from './storage';
+import type { AppState, Material, Project, Settings, SyncStatus, WorkspaceInfo } from './types';
 import { DEFAULT_SETTINGS } from './types';
+import { syncManager, canEdit } from './sync';
 
 /**
  * Generate a unique ID
@@ -14,11 +15,47 @@ function generateId(): string {
  */
 function createAppState() {
 	let state = $state<AppState>(loadState());
+	let workspace = $state<WorkspaceInfo | null>(loadWorkspace());
+	let syncStatus = $state<SyncStatus>('offline');
+	let lastSyncedAt = $state<number | null>(null);
+	let initialized = $state(false);
 
 	// Helper to save state after mutations
 	function persist() {
 		saveState(state);
+		// Queue sync if we have a workspace and can edit
+		if (workspace && canEdit(workspace)) {
+			syncStatus = 'pending';
+			// Debounced sync (sync after 2 seconds of no changes)
+			scheduleSync();
+		}
 	}
+
+	let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	function scheduleSync() {
+		if (syncTimeout) {
+			clearTimeout(syncTimeout);
+		}
+		syncTimeout = setTimeout(async () => {
+			if (workspace && canEdit(workspace)) {
+				syncStatus = 'syncing';
+				const success = await syncManager.sync(state);
+				if (success) {
+					syncStatus = 'synced';
+					lastSyncedAt = Date.now();
+					saveSyncMeta({ lastSyncedAt });
+				} else {
+					syncStatus = 'error';
+				}
+			}
+		}, 2000);
+	}
+
+	// Listen for sync status changes from the manager
+	syncManager.setStatusChangeHandler((status) => {
+		syncStatus = status;
+	});
 
 	return {
 		// Getters
@@ -36,6 +73,23 @@ function createAppState() {
 		},
 		get state() {
 			return state;
+		},
+
+		// Workspace getters
+		get workspace() {
+			return workspace;
+		},
+		get syncStatus() {
+			return syncStatus;
+		},
+		get lastSyncedAt() {
+			return lastSyncedAt;
+		},
+		get initialized() {
+			return initialized;
+		},
+		get canEdit() {
+			return canEdit(workspace);
 		},
 
 		// Settings actions
@@ -188,6 +242,74 @@ function createAppState() {
 			state.projects = [];
 			state.lastSelectedProjectId = null;
 			persist();
+		},
+
+		// Workspace actions
+		setWorkspace(newWorkspace: WorkspaceInfo | null) {
+			workspace = newWorkspace;
+			if (newWorkspace) {
+				saveWorkspace(newWorkspace);
+				syncManager.setWorkspace(newWorkspace);
+			}
+		},
+
+		async initializeSync() {
+			const result = await syncManager.initialize();
+			workspace = result.workspace;
+			initialized = true;
+
+			// If we got remote data, merge it
+			if (result.remoteState) {
+				state.settings = result.remoteState.settings;
+				state.materials = result.remoteState.materials;
+				state.projects = result.remoteState.projects;
+				// Keep local lastSelectedProjectId
+				saveState(state);
+				lastSyncedAt = Date.now();
+				saveSyncMeta({ lastSyncedAt });
+			}
+
+			return result;
+		},
+
+		async sync() {
+			if (!workspace || !canEdit(workspace)) return false;
+
+			syncStatus = 'syncing';
+			const success = await syncManager.sync(state);
+
+			if (success) {
+				syncStatus = 'synced';
+				lastSyncedAt = Date.now();
+				saveSyncMeta({ lastSyncedAt });
+			} else {
+				syncStatus = 'error';
+			}
+
+			return success;
+		},
+
+		async pull() {
+			if (!workspace) return;
+
+			const remoteState = await syncManager.pull();
+			if (remoteState) {
+				state.settings = remoteState.settings;
+				state.materials = remoteState.materials;
+				state.projects = remoteState.projects;
+				saveState(state);
+				lastSyncedAt = Date.now();
+				saveSyncMeta({ lastSyncedAt });
+				syncStatus = 'synced';
+			}
+		},
+
+		updatePassphrase(passphrase: string) {
+			if (workspace) {
+				workspace = { ...workspace, passphrase };
+				saveWorkspace(workspace);
+				syncManager.setWorkspace(workspace);
+			}
 		}
 	};
 }
