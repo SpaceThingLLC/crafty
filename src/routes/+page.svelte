@@ -82,7 +82,7 @@
 
 	// Settings state and handlers
 	const laborRateUnits: LaborRateUnit[] = ['minute', '15min', 'hour'];
-	let fileInput: HTMLInputElement;
+	let fileInput = $state<HTMLInputElement>();
 
 	function handleCurrencyChange(e: Event) {
 		const target = e.target as HTMLInputElement;
