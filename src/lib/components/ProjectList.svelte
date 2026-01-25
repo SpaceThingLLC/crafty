@@ -23,18 +23,21 @@
 	let projectToDelete = $state<Project | null>(null);
 
 	function handleAdd() {
+		if (!appState.canEdit) return;
 		editingProject = undefined;
 		showForm = true;
 	}
 
 	function handleEdit(project: Project, e: Event) {
 		e.stopPropagation();
+		if (!appState.canEdit) return;
 		editingProject = project;
 		showForm = true;
 	}
 
 	function handleDelete(project: Project, e: Event) {
 		e.stopPropagation();
+		if (!appState.canEdit) return;
 		projectToDelete = project;
 		showDeleteDialog = true;
 	}
@@ -68,10 +71,12 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Your Projects</h3>
-		<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
-			<SquarePlus size={16} />
-			<span>New Project</span>
-		</button>
+		{#if appState.canEdit}
+			<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
+				<SquarePlus size={16} />
+				<span>New Project</span>
+			</button>
+		{/if}
 	</div>
 
 	{#if showForm}
@@ -115,6 +120,8 @@
 							class="btn-icon btn-sm preset-outlined-surface-500"
 							onclick={(e) => handleEdit(project, e)}
 							aria-label="Edit project"
+							disabled={!appState.canEdit}
+							title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
 						>
 							<Pencil size={14} />
 						</button>
@@ -123,6 +130,8 @@
 							class="btn-icon btn-sm preset-tonal-error"
 							onclick={(e) => handleDelete(project, e)}
 							aria-label="Delete project"
+							disabled={!appState.canEdit}
+							title={!appState.canEdit ? 'Enter passphrase to delete' : undefined}
 						>
 							<Trash2 size={14} />
 						</button>

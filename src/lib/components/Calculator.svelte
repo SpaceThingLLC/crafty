@@ -127,6 +127,7 @@
 
 	// Handle material selection - add to project
 	function onMaterialSelect(event: { value: string[] }) {
+		if (!appState.canEdit) return;
 		if (event.value.length > 0 && internalSelectedId) {
 			const materialId = event.value[0];
 			appState.addMaterialToProject(internalSelectedId, materialId, addingQuantity);
@@ -139,6 +140,7 @@
 
 	// Handle quantity change for existing materials
 	function handleQuantityChange(materialId: string, e: Event) {
+		if (!appState.canEdit) return;
 		const target = e.target as HTMLInputElement;
 		const quantity = parseFloat(target.value);
 		if (!isNaN(quantity) && internalSelectedId) {
@@ -153,6 +155,7 @@
 
 	// Decrement material quantity (minimum 0.1)
 	function decrementQuantity(materialId: string, currentQty: number) {
+		if (!appState.canEdit) return;
 		const newQty = Math.max(0.1, currentQty - 1);
 		if (internalSelectedId) {
 			appState.updateProjectMaterial(internalSelectedId, materialId, newQty);
@@ -161,6 +164,7 @@
 
 	// Increment material quantity
 	function incrementQuantity(materialId: string, currentQty: number) {
+		if (!appState.canEdit) return;
 		if (internalSelectedId) {
 			appState.updateProjectMaterial(internalSelectedId, materialId, currentQty + 1);
 		}
@@ -168,6 +172,7 @@
 
 	// Remove material from project
 	function handleRemoveMaterial(materialId: string) {
+		if (!appState.canEdit) return;
 		if (internalSelectedId) {
 			appState.removeProjectMaterial(internalSelectedId, materialId);
 		}
@@ -175,6 +180,7 @@
 
 	// Handle labor change
 	function handleLaborChange(e: Event) {
+		if (!appState.canEdit) return;
 		const target = e.target as HTMLInputElement;
 		const minutes = parseInt(target.value);
 		if (!isNaN(minutes) && minutes >= 0 && internalSelectedId) {
@@ -230,7 +236,7 @@
 			<h3 class="text-lg font-bold mb-4">{project.name}</h3>
 
 			<!-- Add Material Section -->
-			{#if availableMaterials.length > 0}
+			{#if availableMaterials.length > 0 && appState.canEdit}
 				<div class="flex gap-2 items-end mb-4 p-3 bg-surface-100-900 rounded-lg">
 					<div class="flex-1">
 						<span class="label">
@@ -270,6 +276,10 @@
 						<input type="number" class="input" bind:value={addingQuantity} min="0.1" step="0.1" />
 					</label>
 				</div>
+			{:else if availableMaterials.length > 0 && !appState.canEdit}
+				<p class="text-surface-600-400 text-sm mb-4 p-3 bg-surface-100-900 rounded-lg">
+					Enter passphrase to add materials to this project.
+				</p>
 			{:else if appState.materials.length === 0}
 				<p class="text-surface-600-400 text-sm mb-4 p-3 bg-surface-100-900 rounded-lg">
 					Add materials to your library first, then you can add them to this project.
@@ -297,8 +307,9 @@
 											type="button"
 											class="btn-icon btn-sm preset-tonal-surface"
 											onclick={() => decrementQuantity(pm.materialId, pm.quantity)}
-											disabled={pm.quantity <= 0.1}
+											disabled={pm.quantity <= 0.1 || !appState.canEdit}
 											aria-label="Decrease quantity"
+											title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
 										>
 											<Minus size={14} />
 										</button>
@@ -309,12 +320,16 @@
 											oninput={(e) => handleQuantityChange(pm.materialId, e)}
 											min="0.1"
 											step="0.1"
+											disabled={!appState.canEdit}
+											title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
 										/>
 										<button
 											type="button"
 											class="btn-icon btn-sm preset-tonal-surface"
 											onclick={() => incrementQuantity(pm.materialId, pm.quantity)}
 											aria-label="Increase quantity"
+											disabled={!appState.canEdit}
+											title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
 										>
 											<Plus size={14} />
 										</button>
@@ -328,6 +343,8 @@
 										class="btn-icon btn-sm preset-tonal-error"
 										onclick={() => handleRemoveMaterial(pm.materialId)}
 										aria-label="Remove material"
+										disabled={!appState.canEdit}
+										title={!appState.canEdit ? 'Enter passphrase to remove' : undefined}
 									>
 										<X size={14} />
 									</button>
@@ -349,6 +366,8 @@
 						oninput={handleLaborChange}
 						min="0"
 						step="1"
+						disabled={!appState.canEdit}
+						title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
 					/>
 				</label>
 			</div>

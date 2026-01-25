@@ -16,16 +16,19 @@
 	let materialToDelete = $state<Material | null>(null);
 
 	function handleAdd() {
+		if (!appState.canEdit) return;
 		editingMaterial = undefined;
 		showForm = true;
 	}
 
 	function handleEdit(material: Material) {
+		if (!appState.canEdit) return;
 		editingMaterial = material;
 		showForm = true;
 	}
 
 	function handleDelete(material: Material) {
+		if (!appState.canEdit) return;
 		materialToDelete = material;
 		showDeleteDialog = true;
 	}
@@ -50,10 +53,12 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Materials Library</h3>
-		<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
-			<SquarePlus size={16} />
-			<span>Add Material</span>
-		</button>
+		{#if appState.canEdit}
+			<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
+				<SquarePlus size={16} />
+				<span>Add Material</span>
+			</button>
+		{/if}
 	</div>
 
 	{#if showForm}
@@ -85,6 +90,8 @@
 							class="btn-icon btn-sm preset-outlined-surface-500"
 							onclick={() => handleEdit(material)}
 							aria-label="Edit material"
+							disabled={!appState.canEdit}
+							title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
 						>
 							<Pencil size={14} />
 						</button>
@@ -93,6 +100,8 @@
 							class="btn-icon btn-sm preset-tonal-error"
 							onclick={() => handleDelete(material)}
 							aria-label="Delete material"
+							disabled={!appState.canEdit}
+							title={!appState.canEdit ? 'Enter passphrase to delete' : undefined}
 						>
 							<Trash2 size={14} />
 						</button>
