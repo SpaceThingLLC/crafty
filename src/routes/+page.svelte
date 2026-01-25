@@ -85,11 +85,13 @@
 	let fileInput = $state<HTMLInputElement>();
 
 	function handleCurrencyChange(e: Event) {
+		if (!appState.canEdit) return;
 		const target = e.target as HTMLInputElement;
 		appState.updateSettings({ currencySymbol: target.value || '$' });
 	}
 
 	function handleLaborRateChange(e: Event) {
+		if (!appState.canEdit) return;
 		const target = e.target as HTMLInputElement;
 		const value = parseFloat(target.value);
 		if (!isNaN(value) && value >= 0) {
@@ -98,6 +100,7 @@
 	}
 
 	function handleLaborRateUnitChange(e: Event) {
+		if (!appState.canEdit) return;
 		const target = e.target as HTMLSelectElement;
 		appState.updateSettings({ laborRateUnit: target.value as LaborRateUnit });
 	}
@@ -111,10 +114,12 @@
 	}
 
 	function handleImportClick() {
+		if (!appState.canEdit) return;
 		fileInput.click();
 	}
 
 	async function handleFileSelect(e: Event) {
+		if (!appState.canEdit) return;
 		const target = e.target as HTMLInputElement;
 		const file = target.files?.[0];
 		if (!file) return;
@@ -219,6 +224,8 @@
 									oninput={handleCurrencyChange}
 									maxlength="3"
 									placeholder="$"
+									disabled={!appState.canEdit}
+									title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
 								/>
 							</label>
 
@@ -232,12 +239,20 @@
 									min="0"
 									step="0.01"
 									placeholder="15.00"
+									disabled={!appState.canEdit}
+									title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
 								/>
 							</label>
 
 							<label class="label">
 								<span class="label-text">Rate Per</span>
-								<select class="select" value={appState.settings.laborRateUnit} onchange={handleLaborRateUnitChange}>
+								<select
+									class="select"
+									value={appState.settings.laborRateUnit}
+									onchange={handleLaborRateUnitChange}
+									disabled={!appState.canEdit}
+									title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
+								>
 									{#each laborRateUnits as unit}
 										<option value={unit}>{getLaborRateUnitLabel(unit)}</option>
 									{/each}
@@ -254,7 +269,13 @@
 								<Download size={18} />
 								<span>Export Data</span>
 							</button>
-							<button type="button" class="btn preset-tonal-surface w-full" onclick={handleImportClick}>
+							<button
+								type="button"
+								class="btn preset-tonal-surface w-full"
+								onclick={handleImportClick}
+								disabled={!appState.canEdit}
+								title={!appState.canEdit ? 'Enter passphrase to import data' : undefined}
+							>
 								<Upload size={18} />
 								<span>Import Data</span>
 							</button>

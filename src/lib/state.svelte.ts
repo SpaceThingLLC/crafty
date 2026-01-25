@@ -89,6 +89,9 @@ function createAppState() {
 			return initialized;
 		},
 		get canEdit() {
+			// Local-only mode (no workspace) = full edit access
+			if (!workspace) return true;
+			// With workspace, need passphrase
 			return canEdit(workspace);
 		},
 
