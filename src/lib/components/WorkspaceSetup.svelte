@@ -4,6 +4,8 @@
 	import Cloud from '@lucide/svelte/icons/cloud';
 	import Plus from '@lucide/svelte/icons/plus';
 	import LogIn from '@lucide/svelte/icons/log-in';
+	import Eye from '@lucide/svelte/icons/eye';
+	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import { toaster } from '$lib/toaster.svelte';
 	import { createNewWorkspace, getShareableUrl } from '$lib/sync';
 	import { isSupabaseConfigured } from '$lib/db';
@@ -21,6 +23,7 @@
 	let passphrase = $state('');
 	let confirmPassphrase = $state('');
 	let isCreating = $state(false);
+	let showPassphrase = $state(false);
 
 	// Check Supabase config on client-side only to avoid SSR timing issues
 	// During pre-rendering, import.meta.env.PUBLIC_* values aren't available
@@ -45,6 +48,7 @@
 		passphrase = '';
 		confirmPassphrase = '';
 		isCreating = false;
+		showPassphrase = false;
 	}
 
 	async function handleCreate() {
@@ -176,26 +180,58 @@
 					<form onsubmit={(e) => { e.preventDefault(); handleCreate(); }} class="space-y-4">
 						<label class="label">
 							<span class="label-text">Passphrase</span>
-							<input
-								type="password"
-								class="input"
-								bind:value={passphrase}
-								placeholder="Enter a memorable passphrase"
-								disabled={isCreating}
-								required
-							/>
+							<div class="relative">
+								<input
+									type={showPassphrase ? 'text' : 'password'}
+									class="input pr-10"
+									bind:value={passphrase}
+									placeholder="Enter a memorable passphrase"
+									disabled={isCreating}
+									required
+								/>
+								<button
+									type="button"
+									class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-surface-500 hover:text-surface-700 disabled:opacity-50"
+									onclick={() => (showPassphrase = !showPassphrase)}
+									tabindex={-1}
+									disabled={isCreating}
+									aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+								>
+									{#if showPassphrase}
+										<EyeOff size={18} />
+									{:else}
+										<Eye size={18} />
+									{/if}
+								</button>
+							</div>
 						</label>
 
 						<label class="label">
 							<span class="label-text">Confirm Passphrase</span>
-							<input
-								type="password"
-								class="input"
-								bind:value={confirmPassphrase}
-								placeholder="Enter passphrase again"
-								disabled={isCreating}
-								required
-							/>
+							<div class="relative">
+								<input
+									type={showPassphrase ? 'text' : 'password'}
+									class="input pr-10"
+									bind:value={confirmPassphrase}
+									placeholder="Enter passphrase again"
+									disabled={isCreating}
+									required
+								/>
+								<button
+									type="button"
+									class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-surface-500 hover:text-surface-700 disabled:opacity-50"
+									onclick={() => (showPassphrase = !showPassphrase)}
+									tabindex={-1}
+									disabled={isCreating}
+									aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+								>
+									{#if showPassphrase}
+										<EyeOff size={18} />
+									{:else}
+										<Eye size={18} />
+									{/if}
+								</button>
+							</div>
 						</label>
 
 						<p class="text-xs text-surface-500">

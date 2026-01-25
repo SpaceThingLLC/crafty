@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Dialog, Portal } from '@skeletonlabs/skeleton-svelte';
 	import KeyRound from '@lucide/svelte/icons/key-round';
+	import Eye from '@lucide/svelte/icons/eye';
+	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import { toaster } from '$lib/toaster.svelte';
 	import { joinWorkspace } from '$lib/sync';
 
@@ -20,6 +22,7 @@
 
 	let passphrase = $state('');
 	let isVerifying = $state(false);
+	let showPassphrase = $state(false);
 
 	function handleOpenChange(details: { open: boolean }) {
 		open = details.open;
@@ -32,6 +35,7 @@
 	function resetForm() {
 		passphrase = '';
 		isVerifying = false;
+		showPassphrase = false;
 	}
 
 	async function handleVerify() {
@@ -106,14 +110,30 @@
 				<form onsubmit={(e) => { e.preventDefault(); handleVerify(); }} class="space-y-4">
 					<label class="label">
 						<span class="label-text">Passphrase</span>
-						<input
-							type="password"
-							class="input"
-							bind:value={passphrase}
-							placeholder="Enter the workspace passphrase"
-							disabled={isVerifying}
-							required
-						/>
+						<div class="relative">
+							<input
+								type={showPassphrase ? 'text' : 'password'}
+								class="input pr-10"
+								bind:value={passphrase}
+								placeholder="Enter the workspace passphrase"
+								disabled={isVerifying}
+								required
+							/>
+							<button
+								type="button"
+								class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-surface-500 hover:text-surface-700 disabled:opacity-50"
+								onclick={() => (showPassphrase = !showPassphrase)}
+								tabindex={-1}
+								disabled={isVerifying}
+								aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+							>
+								{#if showPassphrase}
+									<EyeOff size={18} />
+								{:else}
+									<Eye size={18} />
+								{/if}
+							</button>
+						</div>
 					</label>
 
 					<div class="flex gap-2 justify-end">
