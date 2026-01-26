@@ -15,7 +15,7 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { appState } from '$lib/state.svelte';
 	import { toaster } from '$lib/toaster.svelte';
-	import { getLaborRateUnitLabel } from '$lib/calculator';
+	import { getLaborRateUnitLabel, getCurrencySymbol, formatCurrency } from '$lib/calculator';
 	import { createNewWorkspace } from '$lib/sync';
 	import { isSupabaseConfigured } from '$lib/db';
 	import type { LaborRateUnit, WorkspaceInfo } from '$lib/types';
@@ -327,7 +327,7 @@
 								<div>
 									<div class="font-medium">{material.name}</div>
 									<div class="text-sm text-surface-600-400">
-										{appState.settings.currencySymbol}{material.unitCost.toFixed(2)} per {material.unit}
+										{formatCurrency(material.unitCost, appState.settings)} per {material.unit}
 									</div>
 								</div>
 								<button
@@ -361,7 +361,7 @@
 								<span class="label-text">Cost</span>
 								<div class="input-group grid-cols-[auto_1fr]">
 									<span class="ig-cell preset-filled-surface-200-800 text-surface-600-400"
-										>{appState.settings.currencySymbol}</span
+										>{getCurrencySymbol(appState.settings)}</span
 									>
 									<input
 										type="number"
