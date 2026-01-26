@@ -80,7 +80,7 @@ This project is configured to deploy to GitHub Pages automatically via GitHub Ac
 2. Set the source to "GitHub Actions"
 3. Push to the `main` branch
 
-The site will be available at `https://<username>.github.io/pricemycraft/`
+The site is intended to live at `https://pricemycraft.com` (custom domain).
 
 ## Data Storage
 

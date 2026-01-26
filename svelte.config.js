@@ -2,6 +2,8 @@ import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
+const basePath = process.env.PUBLIC_BASE_PATH ?? '';
+
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
@@ -13,7 +15,7 @@ const config = {
 			strict: true
 		}),
 		paths: {
-			base: process.argv.includes('dev') ? '' : '/pricemycraft'
+			base: process.argv.includes('dev') ? '' : basePath
 		},
 		prerender: {
 			handleHttpError: ({ path, message }) => {
