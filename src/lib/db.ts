@@ -32,6 +32,7 @@ interface ProjectRow {
 	id: string;
 	workspace_id: string;
 	name: string;
+	description: string | null;
 	labor_minutes: number;
 	created_at: string;
 	updated_at: string;
@@ -70,6 +71,7 @@ function projectRowToProject(row: ProjectRow, materials: ProjectMaterial[]): Pro
 	return {
 		id: row.id,
 		name: row.name,
+		description: row.description ?? undefined,
 		materials,
 		laborMinutes: row.labor_minutes,
 		createdAt: new Date(row.created_at).getTime(),
@@ -275,6 +277,7 @@ export async function saveProject(
 		id: project.id,
 		workspace_id: workspaceId,
 		name: project.name,
+		description: project.description ?? null,
 		labor_minutes: project.laborMinutes,
 		updated_at: new Date().toISOString()
 	});

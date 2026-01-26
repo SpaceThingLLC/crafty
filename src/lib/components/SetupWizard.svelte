@@ -239,8 +239,9 @@
 		let firstProjectId: string | null = null;
 
 		setupProjects.forEach((p, index) => {
-			const project = appState.addProject(p.name);
-			appState.updateProject(project.id, { laborMinutes: p.laborMinutes });
+			const project = appState.addProject(p.name, {
+				laborMinutes: p.laborMinutes
+			});
 			if (index === 0) {
 				firstProjectId = project.id;
 			}
