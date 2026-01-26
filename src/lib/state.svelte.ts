@@ -248,6 +248,14 @@ function createAppState() {
 			persist();
 		},
 
+		resetLocalState() {
+			state.settings = DEFAULT_SETTINGS;
+			state.materials = [];
+			state.projects = [];
+			state.lastSelectedProjectId = null;
+			// Intentionally avoid sync when clearing local data
+		},
+
 		// Workspace actions
 		setWorkspace(newWorkspace: WorkspaceInfo | null) {
 			workspace = newWorkspace;

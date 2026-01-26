@@ -66,6 +66,15 @@ export interface WorkspaceInfo {
 }
 
 /**
+ * Local history of visited workspace URLs
+ */
+export interface ProjectHistoryEntry {
+	id: string;
+	url: string;
+	visitedAt: number;
+}
+
+/**
  * Extended state with workspace and sync info
  */
 export interface ExtendedAppState extends AppState {

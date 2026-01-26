@@ -13,6 +13,7 @@ import {
 	isSupabaseConfigured
 } from './db';
 import { isOnline } from './supabase';
+import { recordProjectVisit } from './storage';
 import type {
 	AppState,
 	ExtendedAppState,
@@ -22,7 +23,8 @@ import type {
 } from './types';
 import { DEFAULT_STATE } from './types';
 
-const WORKSPACE_STORAGE_KEY = 'crafty-workspace';
+const WORKSPACE_STORAGE_KEY = 'pricemycraft-workspace';
+const LEGACY_WORKSPACE_KEY = 'crafty-workspace';
 
 const UUID_PATTERN =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,12 +39,25 @@ function getWorkspaceToken(workspace: Pick<WorkspaceInfo, 'id' | 'shortName'>): 
 
 /**
  * Load workspace info from localStorage
+ * Includes migration from legacy key (crafty-workspace) to new key (pricemycraft-workspace)
  */
 export function loadWorkspaceInfo(): WorkspaceInfo | null {
 	if (typeof localStorage === 'undefined') return null;
 
 	try {
-		const stored = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+		// Check new key first
+		let stored = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+
+		// If no data under new key, check legacy key and migrate
+		if (!stored) {
+			const legacyStored = localStorage.getItem(LEGACY_WORKSPACE_KEY);
+			if (legacyStored) {
+				localStorage.setItem(WORKSPACE_STORAGE_KEY, legacyStored);
+				localStorage.removeItem(LEGACY_WORKSPACE_KEY);
+				stored = legacyStored;
+			}
+		}
+
 		if (!stored) return null;
 		return JSON.parse(stored) as WorkspaceInfo;
 	} catch {
@@ -106,6 +121,13 @@ export function getShareableUrl(workspace: WorkspaceInfo): string {
 	return url.toString();
 }
 
+function recordWorkspaceVisit(workspace: WorkspaceInfo): void {
+	if (typeof window === 'undefined') return;
+	const url = getShareableUrl(workspace);
+	if (!url) return;
+	recordProjectVisit({ id: workspace.id, url });
+}
+
 /**
  * Create a new workspace
  */
@@ -128,6 +150,7 @@ export async function createNewWorkspace(passphrase: string): Promise<WorkspaceI
 
 	saveWorkspaceInfo(workspace);
 	setWorkspaceInUrl(workspace);
+	recordWorkspaceVisit(workspace);
 
 	return workspace;
 }
@@ -163,6 +186,7 @@ export async function joinWorkspace(
 
 		saveWorkspaceInfo(workspace);
 		setWorkspaceInUrl(workspace);
+		recordWorkspaceVisit(workspace);
 	}
 
 	return { success: true, isValid };
@@ -191,6 +215,7 @@ export async function viewWorkspace(workspaceId: string): Promise<boolean> {
 
 	saveWorkspaceInfo(workspace);
 	setWorkspaceInUrl(workspace);
+	recordWorkspaceVisit(workspace);
 
 	return true;
 }
@@ -315,7 +340,7 @@ export class SyncManager {
 				};
 				saveWorkspaceInfo(workspace);
 			} else {
-				// Invalid workspace ID in URL
+				// Invalid workspace token in URL
 				workspace = null;
 			}
 		} else if (workspace && !workspace.shortName) {
@@ -332,6 +357,8 @@ export class SyncManager {
 			this.setStatus('offline');
 			return { workspace: null, remoteState: null };
 		}
+
+		recordWorkspaceVisit(workspace);
 
 		// Try to fetch remote data
 		const online = await isOnline();

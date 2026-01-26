@@ -1,0 +1,60 @@
+name: Deploy Database Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview changes without applying (recommended first)'
+        required: true
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type MIGRATE to confirm applying migrations'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to Supabase project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+
+      - name: Preview migrations (dry run)
+        if: inputs.dry_run
+        run: |
+          echo "🔍 Previewing migrations that would be applied..."
+          echo ""
+          supabase db push --dry-run
+
+      - name: Validate confirmation
+        if: ${{ !inputs.dry_run && inputs.confirm != 'MIGRATE' }}
+        run: |
+          echo "❌ Migration aborted: You must type 'MIGRATE' to confirm applying migrations."
+          echo "   This is a safety check to prevent accidental deployments."
+          exit 1
+
+      - name: Apply migrations
+        if: ${{ !inputs.dry_run && inputs.confirm == 'MIGRATE' }}
+        run: |
+          echo "🚀 Applying migrations to production..."
+          echo ""
+          supabase db push
+          echo ""
+          echo "✅ Migrations applied successfully!"
