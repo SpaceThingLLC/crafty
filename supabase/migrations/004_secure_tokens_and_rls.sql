@@ -59,7 +59,7 @@ BEGIN
 
   RETURN v_token;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- Backfill share tokens for existing workspaces
 DO $$
@@ -106,7 +106,7 @@ BEGIN
     'share_token', v_share_token
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- Verify passphrase for a workspace
 CREATE OR REPLACE FUNCTION verify_passphrase(
@@ -123,7 +123,7 @@ BEGIN
 
   RETURN v_hash = crypt(p_passphrase, v_hash);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- Resolve a share token to workspace metadata
 CREATE OR REPLACE FUNCTION resolve_workspace_token(
@@ -153,7 +153,7 @@ BEGIN
       WHERE t.token_hash = v_hash AND t.revoked_at IS NULL;
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- Fetch workspace data using a share token (view-only)
 CREATE OR REPLACE FUNCTION fetch_workspace_data(
@@ -201,7 +201,7 @@ BEGIN
     'project_materials', v_project_materials
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- Sync all workspace data (requires passphrase)
 CREATE OR REPLACE FUNCTION sync_workspace_data(
@@ -339,7 +339,7 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RETURN FALSE;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions;
 
 -- Grant RPC access to anon role
 GRANT EXECUTE ON FUNCTION create_workspace(TEXT) TO anon;
