@@ -1,5 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
+import { env } from '$env/dynamic/public';
+
+// Use dynamic imports so app works without .env in local development
+const PUBLIC_SUPABASE_URL = env.PUBLIC_SUPABASE_URL ?? '';
+const PUBLIC_SUPABASE_ANON_KEY = env.PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 let supabaseClient: SupabaseClient | null = null;
 

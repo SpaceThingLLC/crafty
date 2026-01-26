@@ -175,8 +175,9 @@
 		}
 
 		// Save directly to appState (persists to localStorage immediately)
-		const project = appState.addProject(projectName.trim());
-		appState.updateProject(project.id, { laborMinutes: laborMinutes });
+		const project = appState.addProject(projectName.trim(), {
+			laborMinutes: laborMinutes
+		});
 
 		// Track this project as added during setup
 		addedProjectIds = [...addedProjectIds, project.id];

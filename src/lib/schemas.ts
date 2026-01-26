@@ -25,6 +25,7 @@ export const ProjectMaterialSchema = z.object({
 export const ProjectSchema = z.object({
 	id: z.string().uuid(),
 	name: z.string().min(1, 'Project name is required'),
+	description: z.string().optional(),
 	materials: z.array(ProjectMaterialSchema),
 	laborMinutes: z.number().nonnegative('Labor minutes must be non-negative'),
 	createdAt: z.number().int().positive(),
