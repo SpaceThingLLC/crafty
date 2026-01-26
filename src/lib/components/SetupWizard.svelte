@@ -39,6 +39,8 @@
 	onMount(() => {
 		isConfigured = isSupabaseConfigured();
 		hasCheckedConfig = true;
+		// Set default to online if Supabase is configured, otherwise offline
+		workspaceMode = isConfigured ? 'online' : 'offline';
 	});
 
 	// Step 1: Materials
@@ -381,7 +383,7 @@
 			<div class="space-y-4">
 				<div class="text-center mb-6">
 					<Package size={32} class="mx-auto mb-2 text-primary-500" />
-					<h2 class="text-xl font-semibold">Add your materials</h2>
+					<h2 class="text-xl font-semibold">Add Materials</h2>
 					<p class="text-sm text-surface-600-400 mt-1">What supplies do you use in your crafts?</p>
 				</div>
 
@@ -467,6 +469,10 @@
 							</button>
 						</div>
 					</div>
+				{:else if addedMaterials.length >= 5}
+					<p class="text-xs text-surface-500 text-center">
+						You can add more materials once you're in the application
+					</p>
 				{:else}
 					<button
 						type="button"
@@ -489,7 +495,7 @@
 					class="btn preset-filled-primary-500 w-full mt-4"
 					onclick={handleStep1Next}
 				>
-					<span>Next: Add Projects</span>
+					<span>Next: Add Project</span>
 					<ChevronRight size={18} />
 				</button>
 			</div>
@@ -498,8 +504,8 @@
 			<div class="space-y-4">
 				<div class="text-center mb-6">
 					<FolderOpen size={32} class="mx-auto mb-2 text-primary-500" />
-					<h2 class="text-xl font-semibold">Add your projects</h2>
-					<p class="text-sm text-surface-600-400 mt-1">What are you making?</p>
+					<h2 class="text-xl font-semibold">Add Project <span class="text-sm font-normal text-surface-500">(Optional)</span></h2>
+					<p class="text-sm text-surface-600-400 mt-1">What are you working on?</p>
 				</div>
 
 				<!-- Added Projects List -->
@@ -580,7 +586,7 @@
 
 				{#if addedProjects.length === 0}
 					<p class="text-xs text-surface-500 text-center">
-						You can skip this step and add projects later
+						This step is optional — you can add projects anytime
 					</p>
 				{/if}
 
@@ -604,7 +610,7 @@
 			<div class="space-y-4">
 				<div class="text-center mb-6">
 					<Clock size={32} class="mx-auto mb-2 text-primary-500" />
-					<h2 class="text-xl font-semibold">How much is your time worth?</h2>
+					<h2 class="text-xl font-semibold">What is your time worth?</h2>
 					<p class="text-sm text-surface-600-400 mt-1">
 						This helps calculate the labor cost for your projects.
 					</p>
@@ -637,10 +643,6 @@
 						</select>
 					</label>
 				</div>
-
-				<p class="text-xs text-surface-500 text-center">
-					Example: If you want to earn $15/hour, enter 15 and select "hour"
-				</p>
 
 				<div class="flex gap-2 mt-4">
 					<button type="button" class="btn preset-tonal-surface" onclick={() => (currentStep = 2)}>
@@ -725,10 +727,7 @@
 						>
 							<div class="flex items-center gap-2">
 								<FolderOpen size={16} class="text-primary-500" />
-								<span class="font-medium">Projects</span>
-								<span class="text-xs bg-surface-200-800 px-2 py-0.5 rounded-full">
-									{addedProjects.length}
-								</span>
+								<span class="font-medium">Project</span>
 							</div>
 							{#if addedProjects.length > 0}
 								<ChevronDown
@@ -746,8 +745,6 @@
 									</li>
 								{/each}
 							</ul>
-						{:else if addedProjects.length === 0}
-							<p class="text-sm text-surface-500 mt-1">None added yet</p>
 						{/if}
 					</div>
 				</div>
