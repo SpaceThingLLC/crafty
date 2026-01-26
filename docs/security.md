@@ -32,8 +32,9 @@ PriceMyCraft supports optional cloud sync via Supabase. Access is controlled thr
 ## Security Considerations
 
 - Share links are bearer tokens. If a link is exposed, its data is exposed.
+- The `?n=` URL parameter is a display hint only and does not grant access.
 - Passphrases should be long and unique.
-- If you suspect a link is leaked, rotate the share token in the database and generate a new link.
+- If you suspect a link is leaked, rotate the share link in the app to invalidate old URLs.
 
 ## Recommendations
 

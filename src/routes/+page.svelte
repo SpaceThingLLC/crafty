@@ -190,6 +190,8 @@
 					lastSyncedAt={appState.lastSyncedAt}
 					onsync={() => appState.sync()}
 					onunlock={() => (passphraseModalOpen = true)}
+					onsettings={switchToSettings}
+					onrotatelink={() => appState.rotateShareLink()}
 				/>
 			</div>
 		</header>

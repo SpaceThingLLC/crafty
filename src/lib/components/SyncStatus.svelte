@@ -6,8 +6,10 @@
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import Clock from '@lucide/svelte/icons/clock';
 	import Share2 from '@lucide/svelte/icons/share-2';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import Eye from '@lucide/svelte/icons/eye';
+	import Settings from '@lucide/svelte/icons/settings';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import { toaster } from '$lib/toaster.svelte';
 	import { getShareableUrl, canEdit } from '$lib/sync';
@@ -19,9 +21,12 @@
 		lastSyncedAt: number | null;
 		onsync?: () => void;
 		onunlock?: () => void;
+		onsettings?: () => void;
+		onrotatelink?: () => Promise<string | null>;
 	}
 
-	let { status, workspace, lastSyncedAt, onsync, onunlock }: Props = $props();
+	let { status, workspace, lastSyncedAt, onsync, onunlock, onsettings, onrotatelink }: Props =
+		$props();
 
 	let menuOpen = $state(false);
 
@@ -63,8 +68,8 @@
 		try {
 			await navigator.clipboard.writeText(url);
 			toaster.success({
-				title: 'Link Copied',
-				description: 'Share this private link to let others view your workspace'
+				title: 'View Link Copied',
+				description: 'Anyone with this URL can view the workspace'
 			});
 		} catch {
 			toaster.error({
@@ -82,6 +87,34 @@
 
 	function handleUnlock() {
 		onunlock?.();
+		menuOpen = false;
+	}
+
+	function handleOpenSettings() {
+		onsettings?.();
+		menuOpen = false;
+	}
+
+	async function handleRotateShareLink() {
+		if (!workspace || !onrotatelink) return;
+		const confirmed = window.confirm(
+			'Rotate the share link? Existing links will stop working.'
+		);
+		if (!confirmed) return;
+
+		const newUrl = await onrotatelink();
+		if (!newUrl) {
+			toaster.error({
+				title: 'Share Link Not Rotated',
+				description: 'Could not rotate the share link. Please try again.'
+			});
+			return;
+		}
+
+		toaster.success({
+			title: 'Share Link Rotated',
+			description: 'Use "Copy View Link" to share the new URL.'
+		});
 		menuOpen = false;
 	}
 
@@ -120,7 +153,7 @@
 
 			{#if menuOpen}
 				<div
-					class="absolute right-0 top-full mt-1 card preset-filled-surface-100-900 p-3 text-sm space-y-3 min-w-48 z-50 shadow-lg"
+					class="absolute right-0 top-full mt-1 card preset-filled-surface-100-900 p-3 text-sm space-y-3 min-w-56 z-50 shadow-lg"
 				>
 					<!-- Access Level -->
 					<div class="flex items-center gap-2 pb-2 border-b border-surface-300-700">
@@ -142,8 +175,8 @@
 						<div class="text-error-500 text-xs">Sync failed. Check your connection.</div>
 					{/if}
 
-					<!-- Actions -->
-					<div class="flex flex-col gap-1 pt-1">
+					<!-- Sync Actions -->
+					<div class="flex flex-col gap-1">
 						{#if isEditable && (status === 'pending' || status === 'error')}
 							<button
 								type="button"
@@ -165,15 +198,57 @@
 								<span>Unlock to Edit</span>
 							</button>
 						{/if}
+					</div>
 
+					<!-- Share Link -->
+					<div class="pt-2 border-t border-surface-300-700 space-y-2">
+						<div class="text-[11px] font-semibold uppercase tracking-wide text-surface-500">
+							Share Link
+						</div>
+						<p class="text-xs text-surface-500">
+							Copy the view-only URL to share this workspace.
+						</p>
 						<button
 							type="button"
 							class="btn btn-sm preset-tonal-surface w-full"
 							onclick={copyShareLink}
 						>
 							<Share2 size={14} />
-							<span>Copy Share Link</span>
+							<span>Copy View Link</span>
 						</button>
+					</div>
+
+					<!-- Workspace Actions -->
+					<div class="pt-2 border-t border-surface-300-700 space-y-2">
+						<div class="text-[11px] font-semibold uppercase tracking-wide text-surface-500">
+							Workspace
+						</div>
+						{#if onsettings}
+							<button
+								type="button"
+								class="btn btn-sm preset-tonal-surface w-full"
+								onclick={handleOpenSettings}
+							>
+								<Settings size={14} />
+								<span>Workspace Settings</span>
+							</button>
+							<p class="text-xs text-surface-500">
+								Adjust labor rates and currency in Settings.
+							</p>
+						{/if}
+						{#if isEditable && onrotatelink}
+							<button
+								type="button"
+								class="btn btn-sm preset-tonal-surface w-full"
+								onclick={handleRotateShareLink}
+							>
+								<RotateCcw size={14} />
+								<span>Rotate Share Link</span>
+							</button>
+							<p class="text-xs text-surface-500">
+								Old links will stop working after rotation.
+							</p>
+						{/if}
 					</div>
 				</div>
 			{/if}
