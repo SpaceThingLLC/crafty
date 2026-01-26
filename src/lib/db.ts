@@ -250,4 +250,29 @@ export async function syncAllData(
 	}
 }
 
+export async function rotateShareToken(
+	workspaceId: string,
+	passphrase: string
+): Promise<string | null> {
+	const supabase = getSupabase();
+	if (!supabase) return null;
+
+	try {
+		const { data, error } = await supabase.rpc('rotate_workspace_share_token', {
+			p_workspace_id: workspaceId,
+			p_passphrase: passphrase
+		});
+
+		if (error || !data) {
+			console.error('Failed to rotate share token:', error);
+			return null;
+		}
+
+		return data as string;
+	} catch (error) {
+		console.error('Failed to rotate share token:', error);
+		return null;
+	}
+}
+
 export { isSupabaseConfigured };

@@ -8,7 +8,7 @@ import {
 } from './storage';
 import type { AppState, Material, Project, Settings, SyncStatus, WorkspaceInfo } from './types';
 import { DEFAULT_SETTINGS } from './types';
-import { syncManager, canEdit } from './sync';
+import { syncManager, canEdit, rotateWorkspaceShareToken, getShareableUrl } from './sync';
 
 /**
  * Generate a unique ID
@@ -337,6 +337,15 @@ function createAppState() {
 				saveWorkspaceSecret(passphrase, rememberPassphrase ? 'local' : 'session');
 				syncManager.setWorkspace(workspace);
 			}
+		},
+
+		async rotateShareLink() {
+			if (!workspace) return null;
+			const updatedWorkspace = await rotateWorkspaceShareToken(workspace);
+			if (!updatedWorkspace) return null;
+			workspace = updatedWorkspace;
+			syncManager.setWorkspace(updatedWorkspace);
+			return getShareableUrl(updatedWorkspace);
 		}
 	};
 }

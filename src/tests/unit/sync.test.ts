@@ -15,6 +15,7 @@ vi.mock('$lib/db', () => ({
 	createWorkspace: vi.fn(),
 	fetchWorkspaceData: vi.fn(),
 	resolveWorkspaceToken: vi.fn(),
+	rotateShareToken: vi.fn(),
 	syncAllData: vi.fn(),
 	verifyPassphrase: vi.fn(),
 	isSupabaseConfigured: vi.fn(() => true)

@@ -7,6 +7,7 @@ import {
 	createWorkspace,
 	fetchWorkspaceData,
 	resolveWorkspaceToken as resolveWorkspaceTokenRpc,
+	rotateShareToken as rotateShareTokenRpc,
 	syncAllData,
 	verifyPassphrase,
 	isSupabaseConfigured
@@ -102,7 +103,8 @@ export function getWorkspaceTokenFromUrl(): string | null {
 }
 
 /**
- * Get workspace vanity short name from URL query parameter
+ * Get workspace vanity short name from URL query parameter.
+ * This is a display hint only and is not authoritative.
  */
 export function getWorkspaceShortNameFromUrl(): string | null {
 	if (typeof window === 'undefined') return null;
@@ -293,6 +295,36 @@ export async function pushToRemote(
 	state: AppState
 ): Promise<boolean> {
 	return await syncAllData(workspaceId, passphrase, state);
+}
+
+/**
+ * Rotate the workspace share token and update the local URL + storage.
+ */
+export async function rotateWorkspaceShareToken(
+	workspace: WorkspaceInfo
+): Promise<WorkspaceInfo | null> {
+	if (!isSupabaseConfigured()) {
+		return null;
+	}
+	if (!canEdit(workspace) || !workspace.passphrase) {
+		return null;
+	}
+
+	const newToken = await rotateShareTokenRpc(workspace.id, workspace.passphrase);
+	if (!newToken) {
+		return null;
+	}
+
+	const updatedWorkspace: WorkspaceInfo = {
+		...workspace,
+		shareToken: newToken
+	};
+
+	saveWorkspaceInfo(updatedWorkspace);
+	setWorkspaceInUrl(updatedWorkspace);
+	recordWorkspaceVisit(updatedWorkspace);
+
+	return updatedWorkspace;
 }
 
 /**

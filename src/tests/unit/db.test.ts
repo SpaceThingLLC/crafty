@@ -5,6 +5,7 @@ import {
 	resolveWorkspaceToken,
 	fetchWorkspaceData,
 	syncAllData,
+	rotateShareToken,
 	isSupabaseConfigured
 } from '$lib/db';
 import type { AppState, Settings } from '$lib/types';
@@ -252,6 +253,34 @@ describe('db', () => {
 			const result = await syncAllData(validUUID, 'passphrase', validAppState);
 
 			expect(result).toBe(false);
+		});
+	});
+
+	describe('rotateShareToken', () => {
+		it('should call rpc with rotate_workspace_share_token', async () => {
+			const mockSupabase = {
+				rpc: vi.fn().mockResolvedValue({ data: 'pmc_new', error: null })
+			};
+			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
+
+			const result = await rotateShareToken(validUUID, 'passphrase');
+
+			expect(mockSupabase.rpc).toHaveBeenCalledWith('rotate_workspace_share_token', {
+				p_workspace_id: validUUID,
+				p_passphrase: 'passphrase'
+			});
+			expect(result).toBe('pmc_new');
+		});
+
+		it('should return null on error', async () => {
+			const mockSupabase = {
+				rpc: vi.fn().mockResolvedValue({ data: null, error: new Error('Failed') })
+			};
+			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
+
+			const result = await rotateShareToken(validUUID, 'passphrase');
+
+			expect(result).toBeNull();
 		});
 	});
 });
