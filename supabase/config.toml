@@ -2,9 +2,6 @@
 # For local development: supabase start
 # For migrations: supabase db push
 
-[project]
-id = "" # Set via SUPABASE_PROJECT_ID in CI or `supabase link`
-
 [api]
 enabled = true
 port = 54321
