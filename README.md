@@ -11,6 +11,7 @@ A web-based cost calculator for crafters to determine pricing for handmade items
 - **Automatic Pricing**: See suggested prices based on materials + labor
 - **Local Storage**: Your data is automatically saved in your browser
 - **Import/Export**: Backup and restore your data as JSON files
+- **Optional Cloud Sync**: Sync across devices and share view-only links (when Supabase is configured)
 
 ## Usage
 
@@ -83,12 +84,21 @@ The site will be available at `https://<username>.github.io/pricemycraft/`
 
 ## Data Storage
 
-All data is stored locally in your browser using localStorage. This means:
+By default, data is stored locally in your browser using localStorage. This means:
 
 - Your data never leaves your device
 - Data persists between browser sessions
 - Use the Export feature to backup your data
 - Use the Import feature to restore from a backup
+
+If Supabase is configured, you can enable cloud sync:
+
+- Data syncs to a private workspace in Supabase
+- Share links use high-entropy tokens (treat them like passwords)
+- Editing requires a passphrase (hashed at rest)
+- Passphrases are not stored in local storage unless you opt in on that device
+
+See `docs/security.md` for the full security model and threat assumptions.
 
 ## License
 

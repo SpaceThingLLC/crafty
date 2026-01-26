@@ -24,6 +24,7 @@
 	let confirmPassphrase = $state('');
 	let isCreating = $state(false);
 	let showPassphrase = $state(false);
+	let rememberPassphrase = $state(false);
 
 	// Check Supabase config on client-side only to avoid SSR timing issues
 	// During pre-rendering, import.meta.env.PUBLIC_* values aren't available
@@ -49,6 +50,7 @@
 		confirmPassphrase = '';
 		isCreating = false;
 		showPassphrase = false;
+		rememberPassphrase = false;
 	}
 
 	async function handleCreate() {
@@ -79,7 +81,9 @@
 		isCreating = true;
 
 		try {
-			const workspace = await createNewWorkspace(passphrase);
+			const workspace = await createNewWorkspace(passphrase, {
+				rememberPassphrase
+			});
 			if (workspace) {
 				toaster.success({
 					title: 'Workspace Created',
@@ -234,8 +238,19 @@
 							</div>
 						</label>
 
+						<label class="label flex items-center gap-2">
+							<input
+								type="checkbox"
+								class="checkbox"
+								bind:checked={rememberPassphrase}
+								disabled={isCreating}
+							/>
+							<span class="label-text">Remember passphrase on this device</span>
+						</label>
+
 						<p class="text-xs text-surface-500">
-							Remember this passphrase! It's required to edit your data from other devices.
+							Remember this passphrase! It's required to edit your data from other devices. For
+							security, it's not stored in local storage unless you choose to remember it.
 						</p>
 
 						<div class="flex gap-2 justify-end">

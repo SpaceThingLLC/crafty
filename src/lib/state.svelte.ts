@@ -1,4 +1,11 @@
-import { loadState, saveState, loadWorkspace, saveWorkspace, saveSyncMeta } from './storage';
+import {
+	loadState,
+	saveState,
+	loadWorkspace,
+	saveWorkspace,
+	saveSyncMeta,
+	saveWorkspaceSecret
+} from './storage';
 import type { AppState, Material, Project, Settings, SyncStatus, WorkspaceInfo } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import { syncManager, canEdit } from './sync';
@@ -323,10 +330,11 @@ function createAppState() {
 			}
 		},
 
-		updatePassphrase(passphrase: string) {
+		updatePassphrase(passphrase: string, rememberPassphrase: boolean = false) {
 			if (workspace) {
 				workspace = { ...workspace, passphrase };
 				saveWorkspace(workspace);
+				saveWorkspaceSecret(passphrase, rememberPassphrase ? 'local' : 'session');
 				syncManager.setWorkspace(workspace);
 			}
 		}

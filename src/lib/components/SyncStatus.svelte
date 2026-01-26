@@ -53,11 +53,18 @@
 		if (!workspace) return;
 
 		const url = getShareableUrl(workspace);
+		if (!url) {
+			toaster.error({
+				title: 'Share Link Unavailable',
+				description: 'This workspace does not have a share token yet.'
+			});
+			return;
+		}
 		try {
 			await navigator.clipboard.writeText(url);
 			toaster.success({
 				title: 'Link Copied',
-				description: 'Share this link to let others view your workspace'
+				description: 'Share this private link to let others view your workspace'
 			});
 		} catch {
 			toaster.error({

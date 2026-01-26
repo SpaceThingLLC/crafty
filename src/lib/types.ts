@@ -59,7 +59,8 @@ export interface PendingChange {
  */
 export interface WorkspaceInfo {
 	id: string;
-	shortName?: string | null; // Human-friendly URL token
+	shortName?: string | null; // Human-friendly vanity label (not an access token)
+	shareToken: string | null; // High-entropy share token for view access (treat as secret)
 	passphrase: string | null; // Stored locally for convenience
 	isOwner: boolean; // True if user created this workspace
 	createdAt: number;
