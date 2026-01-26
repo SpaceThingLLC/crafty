@@ -1,6 +1,6 @@
 -- Add human-friendly short names for workspaces
 
-ALTER TABLE workspaces ADD COLUMN short_name TEXT;
+ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS short_name TEXT;
 
 CREATE OR REPLACE FUNCTION generate_workspace_short_name()
 RETURNS TEXT AS $$
@@ -45,18 +45,55 @@ DO $$
 DECLARE
   workspace_row RECORD;
 BEGIN
-  FOR workspace_row IN SELECT id FROM workspaces WHERE short_name IS NULL LOOP
-    UPDATE workspaces
-    SET short_name = generate_workspace_short_name()
-    WHERE id = workspace_row.id;
-  END LOOP;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'workspaces'
+      AND column_name = 'short_name'
+  ) THEN
+    FOR workspace_row IN SELECT id FROM workspaces WHERE short_name IS NULL LOOP
+      UPDATE workspaces
+      SET short_name = generate_workspace_short_name()
+      WHERE id = workspace_row.id;
+    END LOOP;
+  END IF;
 END;
 $$;
 
-ALTER TABLE workspaces ALTER COLUMN short_name SET DEFAULT generate_workspace_short_name();
-ALTER TABLE workspaces ALTER COLUMN short_name SET NOT NULL;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'workspaces'
+      AND column_name = 'short_name'
+  ) THEN
+    ALTER TABLE workspaces ALTER COLUMN short_name SET DEFAULT generate_workspace_short_name();
+    ALTER TABLE workspaces ALTER COLUMN short_name SET NOT NULL;
+  END IF;
+END;
+$$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS workspaces_short_name_unique ON workspaces(short_name);
 
-ALTER TABLE workspaces ADD CONSTRAINT workspaces_short_name_format
-  CHECK (short_name ~ '^[a-z0-9]+(-[a-z0-9]+)+$');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'workspaces'
+      AND column_name = 'short_name'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE c.conname = 'workspaces_short_name_format'
+      AND n.nspname = 'public'
+      AND t.relname = 'workspaces'
+  ) THEN
+    ALTER TABLE workspaces ADD CONSTRAINT workspaces_short_name_format
+      CHECK (short_name ~ '^[a-z0-9]+(-[a-z0-9]+)+$');
+  END IF;
+END;
+$$;
