@@ -16,7 +16,9 @@ import {
 	recordProjectVisit,
 	clearProjectHistory,
 	clearLocalData,
-	loadExtendedState
+	loadExtendedState,
+	saveWorkspaceSecret,
+	loadWorkspaceSecret
 } from '$lib/storage';
 import { DEFAULT_STATE, DEFAULT_SETTINGS } from '$lib/types';
 import type { AppState, WorkspaceInfo } from '$lib/types';
@@ -54,6 +56,7 @@ const validAppState: AppState = {
 
 const validWorkspace: WorkspaceInfo = {
 	id: validUUID,
+	shareToken: 'pmc_test_token',
 	passphrase: 'test-passphrase',
 	isOwner: true,
 	createdAt: Date.now()
@@ -62,6 +65,7 @@ const validWorkspace: WorkspaceInfo = {
 describe('storage', () => {
 	beforeEach(() => {
 		localStorage.clear();
+		sessionStorage.clear();
 		vi.clearAllMocks();
 	});
 
@@ -255,14 +259,27 @@ describe('storage', () => {
 
 			const result = loadWorkspace();
 
-			expect(result).toEqual(validWorkspace);
+			expect(result?.id).toBe(validWorkspace.id);
+			expect(result?.shareToken).toBe(validWorkspace.shareToken);
+			expect(result?.passphrase).toBeNull();
+		});
+
+		it('should hydrate passphrase from workspace secret', () => {
+			saveWorkspace(validWorkspace);
+			saveWorkspaceSecret(validWorkspace.passphrase, 'session');
+
+			const result = loadWorkspace();
+
+			expect(result?.passphrase).toBe(validWorkspace.passphrase);
 		});
 
 		it('should clear workspace', () => {
 			saveWorkspace(validWorkspace);
+			saveWorkspaceSecret(validWorkspace.passphrase, 'session');
 			clearWorkspace();
 
 			expect(loadWorkspace()).toBeNull();
+			expect(loadWorkspaceSecret()).toBeNull();
 		});
 
 		it('should migrate from legacy workspace key', () => {
@@ -449,7 +466,7 @@ describe('storage', () => {
 
 			clearLocalData();
 
-			expect(loadWorkspace()).toEqual(validWorkspace);
+			expect(loadWorkspace()).toEqual({ ...validWorkspace, passphrase: null });
 		});
 	});
 
@@ -463,7 +480,7 @@ describe('storage', () => {
 
 			expect(result.materials).toEqual(validAppState.materials);
 			expect(result.projects).toEqual(validAppState.projects);
-			expect(result.workspace).toEqual(validWorkspace);
+			expect(result.workspace).toEqual({ ...validWorkspace, passphrase: null });
 			expect(result.lastSyncedAt).toBe(12345);
 			expect(result.syncStatus).toBe('offline');
 			expect(result.pendingChanges).toEqual([]);

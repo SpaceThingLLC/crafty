@@ -50,12 +50,28 @@ interface ProjectMaterialRow {
 
 interface WorkspaceLookupRow {
 	id: string;
-	short_name: string;
+	short_name: string | null;
+	share_token: string;
+}
+
+interface WorkspaceTokenRow {
+	workspace_id: string;
+	short_name: string | null;
+}
+
+interface WorkspacePayload {
+	workspace_id: string;
+	short_name: string | null;
+	settings: SettingsRow | null;
+	materials: MaterialRow[];
+	projects: ProjectRow[];
+	project_materials: ProjectMaterialRow[];
 }
 
 export interface WorkspaceLookup {
 	id: string;
 	shortName: string | null;
+	shareToken: string;
 }
 
 function settingsRowToSettings(row: SettingsRow): Settings {
@@ -97,19 +113,17 @@ export async function createWorkspace(
 	const supabase = getSupabase();
 	if (!supabase) return null;
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const { data, error } = await (supabase.rpc as any)('create_workspace', {
+	const { data, error } = await supabase.rpc('create_workspace', {
 		p_passphrase: passphrase
 	});
 
-	if (error) {
+	if (error || !data) {
 		console.error('Failed to create workspace:', error);
 		return null;
 	}
 
-	const workspaceId = data as string;
-	const shortName = await fetchWorkspaceShortName(workspaceId);
-	return { id: workspaceId, shortName };
+	const row = data as WorkspaceLookupRow;
+	return { id: row.id, shortName: row.short_name, shareToken: row.share_token };
 }
 
 export async function verifyPassphrase(
@@ -119,8 +133,7 @@ export async function verifyPassphrase(
 	const supabase = getSupabase();
 	if (!supabase) return false;
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const { data, error } = await (supabase.rpc as any)('verify_passphrase', {
+	const { data, error } = await supabase.rpc('verify_passphrase', {
 		p_workspace_id: workspaceId,
 		p_passphrase: passphrase
 	});
@@ -133,89 +146,50 @@ export async function verifyPassphrase(
 	return (data as boolean) ?? false;
 }
 
-export async function workspaceExists(workspaceId: string): Promise<boolean> {
-	return (await fetchWorkspaceInfoById(workspaceId)) !== null;
-}
-
-export async function fetchWorkspaceInfoById(
-	workspaceId: string
-): Promise<WorkspaceLookup | null> {
+export async function resolveWorkspaceToken(
+	workspaceToken: string
+): Promise<{ id: string; shortName: string | null } | null> {
 	const supabase = getSupabase();
 	if (!supabase) return null;
 
 	const { data, error } = await supabase
-		.from('workspaces')
-		.select('id, short_name')
-		.eq('id', workspaceId)
-		.single();
+		.rpc('resolve_workspace_token', { p_token: workspaceToken })
+		.maybeSingle();
 
 	if (error || !data) {
 		return null;
 	}
 
-	const row = data as WorkspaceLookupRow;
-	return { id: row.id, shortName: row.short_name };
-}
-
-export async function fetchWorkspaceInfoByShortName(
-	shortName: string
-): Promise<WorkspaceLookup | null> {
-	const supabase = getSupabase();
-	if (!supabase) return null;
-
-	const { data, error } = await supabase
-		.from('workspaces')
-		.select('id, short_name')
-		.eq('short_name', shortName)
-		.single();
-
-	if (error || !data) {
-		return null;
-	}
-
-	const row = data as WorkspaceLookupRow;
-	return { id: row.id, shortName: row.short_name };
-}
-
-export async function fetchWorkspaceShortName(workspaceId: string): Promise<string | null> {
-	const info = await fetchWorkspaceInfoById(workspaceId);
-	return info?.shortName ?? null;
+	const row = data as WorkspaceTokenRow;
+	return { id: row.workspace_id, shortName: row.short_name };
 }
 
 // Read operations (public - no passphrase needed)
 
-export async function fetchWorkspaceData(workspaceId: string): Promise<AppState | null> {
+export async function fetchWorkspaceData(workspaceToken: string): Promise<AppState | null> {
 	const supabase = getSupabase();
 	if (!supabase) return null;
 
 	try {
-		// Fetch all data in parallel
-		const [settingsResult, materialsResult, projectsResult] = await Promise.all([
-			supabase.from('settings').select('*').eq('workspace_id', workspaceId).single(),
-			supabase.from('materials').select('*').eq('workspace_id', workspaceId),
-			supabase.from('projects').select('*').eq('workspace_id', workspaceId)
-		]);
+		const { data, error } = await supabase.rpc('fetch_workspace_data', {
+			p_token: workspaceToken
+		});
 
-		if (settingsResult.error || !settingsResult.data) {
-			console.error('Failed to fetch settings:', settingsResult.error);
+		if (error || !data) {
+			console.error('Failed to fetch workspace data:', error);
 			return null;
 		}
 
-		const settingsData = settingsResult.data as SettingsRow;
-		const materialsData = (materialsResult.data ?? []) as MaterialRow[];
-		const projectsData = (projectsResult.data ?? []) as ProjectRow[];
-
-		// Fetch project materials for all projects
-		const projectIds = projectsData.map((p) => p.id);
-		let projectMaterialsData: ProjectMaterialRow[] = [];
-
-		if (projectIds.length > 0) {
-			const { data: pmData } = await supabase
-				.from('project_materials')
-				.select('*')
-				.in('project_id', projectIds);
-			projectMaterialsData = (pmData ?? []) as ProjectMaterialRow[];
+		const payload = data as WorkspacePayload;
+		if (!payload.settings) {
+			console.error('Failed to fetch workspace settings');
+			return null;
 		}
+
+		const settingsData = payload.settings as SettingsRow;
+		const materialsData = (payload.materials ?? []) as MaterialRow[];
+		const projectsData = (payload.projects ?? []) as ProjectRow[];
+		const projectMaterialsData = (payload.project_materials ?? []) as ProjectMaterialRow[];
 
 		// Group project materials by project
 		const projectMaterialsMap = new Map<string, ProjectMaterial[]>();
@@ -247,199 +221,29 @@ export async function fetchWorkspaceData(workspaceId: string): Promise<AppState 
 	}
 }
 
-// Write operations (require passphrase verification)
-
-export async function saveSettings(
-	workspaceId: string,
-	settings: Settings
-): Promise<boolean> {
-	const supabase = getSupabase();
-	if (!supabase) return false;
-
-	const { error } = await supabase
-		.from('settings')
-		.update({
-			currency_symbol: settings.currencySymbol,
-			labor_rate: settings.laborRate,
-			labor_rate_unit: settings.laborRateUnit,
-			labor_rate_prompt_dismissed: settings.laborRatePromptDismissed ?? false,
-			updated_at: new Date().toISOString()
-		})
-		.eq('workspace_id', workspaceId);
-
-	if (error) {
-		console.error('Failed to save settings:', error);
-		return false;
-	}
-
-	return true;
-}
-
-export async function saveMaterial(
-	workspaceId: string,
-	material: Material
-): Promise<boolean> {
-	const supabase = getSupabase();
-	if (!supabase) return false;
-
-	const { error } = await supabase.from('materials').upsert({
-		id: material.id,
-		workspace_id: workspaceId,
-		name: material.name,
-		unit_cost: material.unitCost,
-		unit: material.unit,
-		notes: material.notes ?? null,
-		updated_at: new Date().toISOString()
-	});
-
-	if (error) {
-		console.error('Failed to save material:', error);
-		return false;
-	}
-
-	return true;
-}
-
-export async function deleteMaterial(materialId: string): Promise<boolean> {
-	const supabase = getSupabase();
-	if (!supabase) return false;
-
-	const { error } = await supabase.from('materials').delete().eq('id', materialId);
-
-	if (error) {
-		console.error('Failed to delete material:', error);
-		return false;
-	}
-
-	return true;
-}
-
-export async function saveProject(
-	workspaceId: string,
-	project: Project,
-	materials: Material[]
-): Promise<boolean> {
-	const supabase = getSupabase();
-	if (!supabase) return false;
-
-	// Save project
-	const { error: projectError } = await supabase.from('projects').upsert({
-		id: project.id,
-		workspace_id: workspaceId,
-		name: project.name,
-		description: project.description ?? null,
-		labor_minutes: project.laborMinutes,
-		updated_at: new Date().toISOString()
-	});
-
-	if (projectError) {
-		console.error('Failed to save project:', projectError);
-		return false;
-	}
-
-	// Delete existing project materials and re-insert
-	await supabase.from('project_materials').delete().eq('project_id', project.id);
-
-	if (project.materials.length > 0) {
-		const projectMaterials = project.materials.map((pm) => {
-			const material = materials.find((m) => m.id === pm.materialId);
-			return {
-				project_id: project.id,
-				material_id: pm.materialId,
-				quantity: pm.quantity,
-				material_name: material?.name ?? 'Unknown',
-				material_unit_cost: material?.unitCost ?? 0,
-				material_unit: material?.unit ?? 'unit'
-			};
-		});
-
-		const { error: pmError } = await supabase
-			.from('project_materials')
-			.insert(projectMaterials);
-
-		if (pmError) {
-			console.error('Failed to save project materials:', pmError);
-			return false;
-		}
-	}
-
-	return true;
-}
-
-export async function deleteProject(projectId: string): Promise<boolean> {
-	const supabase = getSupabase();
-	if (!supabase) return false;
-
-	// Project materials will be deleted via cascade
-	const { error } = await supabase.from('projects').delete().eq('id', projectId);
-
-	if (error) {
-		console.error('Failed to delete project:', error);
-		return false;
-	}
-
-	return true;
-}
-
 // Bulk sync operations
 
 export async function syncAllData(
 	workspaceId: string,
+	passphrase: string,
 	state: AppState
 ): Promise<boolean> {
 	const supabase = getSupabase();
 	if (!supabase) return false;
 
 	try {
-		// Save settings
-		const settingsOk = await saveSettings(workspaceId, state.settings);
-		if (!settingsOk) return false;
+		const { data, error } = await supabase.rpc('sync_workspace_data', {
+			p_workspace_id: workspaceId,
+			p_passphrase: passphrase,
+			p_state: state
+		});
 
-		// Sync materials - delete removed ones, upsert existing
-		const { data: existingMaterials } = await supabase
-			.from('materials')
-			.select('id')
-			.eq('workspace_id', workspaceId);
-
-		const existingMaterialsList = (existingMaterials ?? []) as { id: string }[];
-		const existingIds = new Set(existingMaterialsList.map((m) => m.id));
-		const currentIds = new Set(state.materials.map((m) => m.id));
-
-		// Delete materials that are no longer present
-		const toDelete = [...existingIds].filter((id) => !currentIds.has(id));
-		if (toDelete.length > 0) {
-			await supabase.from('materials').delete().in('id', toDelete);
+		if (error) {
+			console.error('Failed to sync all data:', error);
+			return false;
 		}
 
-		// Upsert all current materials
-		for (const material of state.materials) {
-			await saveMaterial(workspaceId, material);
-		}
-
-		// Sync projects
-		const { data: existingProjects } = await supabase
-			.from('projects')
-			.select('id')
-			.eq('workspace_id', workspaceId);
-
-		const existingProjectsList = (existingProjects ?? []) as { id: string }[];
-		const existingProjectIds = new Set(existingProjectsList.map((p) => p.id));
-		const currentProjectIds = new Set(state.projects.map((p) => p.id));
-
-		// Delete projects that are no longer present
-		const projectsToDelete = [...existingProjectIds].filter(
-			(id) => !currentProjectIds.has(id)
-		);
-		if (projectsToDelete.length > 0) {
-			await supabase.from('projects').delete().in('id', projectsToDelete);
-		}
-
-		// Upsert all current projects
-		for (const project of state.projects) {
-			await saveProject(workspaceId, project, state.materials);
-		}
-
-		return true;
+		return Boolean(data);
 	} catch (error) {
 		console.error('Failed to sync all data:', error);
 		return false;

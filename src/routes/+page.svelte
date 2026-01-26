@@ -53,8 +53,8 @@
 		appState.sync();
 	}
 
-	function handlePassphraseVerified(passphrase: string) {
-		appState.updatePassphrase(passphrase);
+	function handlePassphraseVerified(passphrase: string, rememberPassphrase: boolean) {
+		appState.updatePassphrase(passphrase, rememberPassphrase);
 		// Refresh data from remote
 		appState.pull();
 	}

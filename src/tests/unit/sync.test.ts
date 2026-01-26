@@ -14,9 +14,9 @@ import type { WorkspaceInfo } from '$lib/types';
 vi.mock('$lib/db', () => ({
 	createWorkspace: vi.fn(),
 	fetchWorkspaceData: vi.fn(),
+	resolveWorkspaceToken: vi.fn(),
 	syncAllData: vi.fn(),
 	verifyPassphrase: vi.fn(),
-	workspaceExists: vi.fn(),
 	isSupabaseConfigured: vi.fn(() => true)
 }));
 
@@ -40,6 +40,7 @@ const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 
 const validWorkspace: WorkspaceInfo = {
 	id: validUUID,
+	shareToken: 'pmc_test_token',
 	passphrase: 'test-passphrase',
 	isOwner: true,
 	createdAt: Date.now()
@@ -48,6 +49,7 @@ const validWorkspace: WorkspaceInfo = {
 describe('sync', () => {
 	beforeEach(() => {
 		localStorage.clear();
+		sessionStorage.clear();
 		vi.clearAllMocks();
 	});
 
@@ -58,11 +60,14 @@ describe('sync', () => {
 		});
 
 		it('should load workspace from localStorage', () => {
-			localStorage.setItem('pricemycraft-workspace', JSON.stringify(validWorkspace));
+			const storedWorkspace = { ...validWorkspace, passphrase: null };
+			localStorage.setItem('pricemycraft-workspace', JSON.stringify(storedWorkspace));
 
 			const result = loadWorkspaceInfo();
 
-			expect(result).toEqual(validWorkspace);
+			expect(result?.id).toBe(validWorkspace.id);
+			expect(result?.shareToken).toBe(validWorkspace.shareToken);
+			expect(result?.passphrase).toBeNull();
 		});
 
 		it('should migrate from legacy storage key', () => {
@@ -89,7 +94,8 @@ describe('sync', () => {
 			saveWorkspaceInfo(validWorkspace);
 
 			const stored = JSON.parse(localStorage.getItem('pricemycraft-workspace')!);
-			expect(stored).toEqual(validWorkspace);
+			expect(stored.passphrase).toBeUndefined();
+			expect(stored.shareToken).toBe(validWorkspace.shareToken);
 		});
 
 		it('should overwrite existing workspace', () => {
@@ -98,7 +104,7 @@ describe('sync', () => {
 			saveWorkspaceInfo(newWorkspace);
 
 			const stored = JSON.parse(localStorage.getItem('pricemycraft-workspace')!);
-			expect(stored.passphrase).toBe('new-passphrase');
+			expect(stored.passphrase).toBeUndefined();
 		});
 	});
 
@@ -136,20 +142,22 @@ describe('sync', () => {
 
 		it('should return workspace token from URL', () => {
 			// @ts-expect-error - mocking window.location
-			window.location = new URL(`http://localhost:5173?w=${validUUID}`);
+			window.location = new URL(`http://localhost:5173?w=${validWorkspace.shareToken}`);
 
 			const result = getWorkspaceTokenFromUrl();
 
-			expect(result).toBe(validUUID);
+			expect(result).toBe(validWorkspace.shareToken);
 		});
 
 		it('should handle URL with other params', () => {
 			// @ts-expect-error - mocking window.location
-			window.location = new URL(`http://localhost:5173?foo=bar&w=${validUUID}&baz=qux`);
+			window.location = new URL(
+				`http://localhost:5173?foo=bar&w=${validWorkspace.shareToken}&baz=qux`
+			);
 
 			const result = getWorkspaceTokenFromUrl();
 
-			expect(result).toBe(validUUID);
+			expect(result).toBe(validWorkspace.shareToken);
 		});
 	});
 
@@ -173,21 +181,21 @@ describe('sync', () => {
 
 			const result = getShareableUrl(validWorkspace);
 
-			expect(result).toBe(`http://localhost:5173/?w=${validUUID}`);
+			expect(result).toBe(`http://localhost:5173/?w=${validWorkspace.shareToken}`);
 		});
 
 		it('should replace existing workspace param', () => {
-			const otherUUID = '00000000-0000-0000-0000-000000000001';
+			const otherToken = 'pmc_other_token';
 			// @ts-expect-error - mocking window.location
-			window.location = new URL(`http://localhost:5173?w=${otherUUID}`);
+			window.location = new URL(`http://localhost:5173?w=${otherToken}`);
 
 			const result = getShareableUrl(validWorkspace);
 
-			expect(result).toContain(`w=${validUUID}`);
-			expect(result).not.toContain(otherUUID);
+			expect(result).toContain(`w=${validWorkspace.shareToken}`);
+			expect(result).not.toContain(otherToken);
 		});
 
-		it('should use shortName when available', () => {
+		it('should add shortName param when available', () => {
 			// @ts-expect-error - mocking window.location
 			window.location = new URL('http://localhost:5173');
 
@@ -198,7 +206,9 @@ describe('sync', () => {
 
 			const result = getShareableUrl(workspaceWithShortName);
 
-			expect(result).toBe('http://localhost:5173/?w=my-project');
+			expect(result).toBe(
+				`http://localhost:5173/?w=${validWorkspace.shareToken}&n=my-project`
+			);
 		});
 	});
 

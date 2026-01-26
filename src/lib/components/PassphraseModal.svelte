@@ -9,7 +9,7 @@
 	interface Props {
 		open: boolean;
 		workspaceId: string;
-		onverified: (passphrase: string) => void;
+		onverified: (passphrase: string, rememberPassphrase: boolean) => void;
 		oncancel?: () => void;
 	}
 
@@ -23,6 +23,7 @@
 	let passphrase = $state('');
 	let isVerifying = $state(false);
 	let showPassphrase = $state(false);
+	let rememberPassphrase = $state(false);
 
 	function handleOpenChange(details: { open: boolean }) {
 		open = details.open;
@@ -36,6 +37,7 @@
 		passphrase = '';
 		isVerifying = false;
 		showPassphrase = false;
+		rememberPassphrase = false;
 	}
 
 	async function handleVerify() {
@@ -73,7 +75,7 @@
 				title: 'Access Granted',
 				description: 'You can now edit this workspace.'
 			});
-			onverified(passphrase);
+			onverified(passphrase, rememberPassphrase);
 			open = false;
 			resetForm();
 		} catch (error) {
@@ -134,6 +136,16 @@
 								{/if}
 							</button>
 						</div>
+					</label>
+
+					<label class="label flex items-center gap-2">
+						<input
+							type="checkbox"
+							class="checkbox"
+							bind:checked={rememberPassphrase}
+							disabled={isVerifying}
+						/>
+						<span class="label-text">Remember passphrase on this device</span>
 					</label>
 
 					<div class="flex gap-2 justify-end">
