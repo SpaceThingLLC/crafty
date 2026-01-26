@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import Download from '@lucide/svelte/icons/download';
-	import Upload from '@lucide/svelte/icons/upload';
 	import Eye from '@lucide/svelte/icons/eye';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Calculator2 from '@lucide/svelte/icons/calculator';
@@ -9,42 +7,40 @@
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
-	import Calculator from '$lib/components/Calculator.svelte';
-	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
-	import ProjectList from '$lib/components/ProjectList.svelte';
 	import SetupWizard from '$lib/components/SetupWizard.svelte';
 	import SyncStatus from '$lib/components/SyncStatus.svelte';
 	import WorkspaceSetup from '$lib/components/WorkspaceSetup.svelte';
 	import PassphraseModal from '$lib/components/PassphraseModal.svelte';
 	import { appState } from '$lib/state.svelte';
-	import {
-		clearLocalData,
-		downloadState,
-		importState,
-		loadProjectHistory
-	} from '$lib/storage';
-	import { toaster } from '$lib/toaster.svelte';
-	import type { LaborRateUnit, ProjectHistoryEntry, WorkspaceInfo, Settings } from '$lib/types';
-	import { getLaborRateUnitLabel, getCurrencySymbol } from '$lib/calculator';
-	import { SUPPORTED_CURRENCIES, getCurrencyConfig, type CurrencyCode } from '$lib/currencies';
+	import type { WorkspaceInfo } from '$lib/types';
 
 	// Show setup wizard for the initial empty state until the user completes the flow.
 	let showSetupWizard = $state(
 		appState.materials.length === 0 && appState.projects.length === 0
 	);
 
-	let activeTab = $state('calculator');
+	type TabKey = 'calculator' | 'materials' | 'projects' | 'settings';
+
+	type CalculatorComponentType = typeof import('$lib/components/Calculator.svelte').default;
+	type MaterialLibraryComponentType =
+		typeof import('$lib/components/MaterialLibrary.svelte').default;
+	type ProjectListComponentType = typeof import('$lib/components/ProjectList.svelte').default;
+	type SettingsPanelComponentType =
+		typeof import('$lib/components/SettingsPanel.svelte').default;
+
+	let activeTab = $state<TabKey>('calculator');
 	let workspaceSetupOpen = $state(false);
 	let passphraseModalOpen = $state(false);
-	let projectHistory = $state<ProjectHistoryEntry[]>([]);
-	let resetConfirmation = $state('');
-
-	const RESET_CONFIRMATION_TEXT = 'RESET';
+	let CalculatorView = $state<CalculatorComponentType | null>(null);
+	let MaterialLibraryView = $state<MaterialLibraryComponentType | null>(null);
+	let ProjectListView = $state<ProjectListComponentType | null>(null);
+	let SettingsPanelView = $state<SettingsPanelComponentType | null>(null);
+	let hasPrefetchedTabs = $state(false);
 
 	// Initialize sync on mount
 	onMount(async () => {
 		await appState.initializeSync();
-		refreshProjectHistory();
+		void loadTab(activeTab);
 	});
 
 	function handleWorkspaceCreated(workspace: WorkspaceInfo) {
@@ -53,7 +49,6 @@
 			appState.resetState();
 		}
 		appState.setWorkspace(workspace);
-		refreshProjectHistory();
 		// Sync initial data to the new workspace
 		appState.sync();
 	}
@@ -91,97 +86,75 @@
 	function handleProjectSelect(projectId: string) {
 		selectedProjectId = projectId;
 		appState.setLastSelectedProjectId(projectId);
-		activeTab = 'calculator';
+		setActiveTab('calculator');
 	}
 
 	function switchToProjects() {
-		activeTab = 'projects';
+		setActiveTab('projects');
 	}
 
 	function switchToSettings() {
-		activeTab = 'settings';
+		setActiveTab('settings');
 	}
 
-	function refreshProjectHistory() {
-		projectHistory = loadProjectHistory();
-	}
-
-	// Settings state and handlers
-	const laborRateUnits: LaborRateUnit[] = ['minute', '15min', 'hour'];
-	let fileInput = $state<HTMLInputElement>();
-
-	function handleCurrencyChange(e: Event) {
-		if (!appState.canEdit) return;
-		const target = e.target as HTMLSelectElement;
-		const currencyCode = target.value as CurrencyCode;
-		const config = getCurrencyConfig(currencyCode);
-		appState.updateSettings({
-			currencyCode,
-			currencySymbol: config?.symbol || '$'
-		});
-	}
-
-	function handleLaborRateChange(e: Event) {
-		if (!appState.canEdit) return;
-		const target = e.target as HTMLInputElement;
-		const value = parseFloat(target.value);
-		if (!isNaN(value) && value >= 0) {
-			appState.updateSettings({ laborRate: value });
+	function setActiveTab(tab: TabKey) {
+		activeTab = tab;
+		void loadTab(tab);
+		if (!hasPrefetchedTabs) {
+			hasPrefetchedTabs = true;
+			void prefetchTabs();
 		}
 	}
 
-	function handleLaborRateUnitChange(e: Event) {
-		if (!appState.canEdit) return;
-		const target = e.target as HTMLSelectElement;
-		appState.updateSettings({ laborRateUnit: target.value as LaborRateUnit });
-	}
-
-	function handleExport() {
-		downloadState(appState.state);
-		toaster.success({
-			title: 'Export Complete',
-			description: 'Your data has been exported successfully.'
-		});
-	}
-
-	function handleImportClick() {
-		if (!appState.canEdit) return;
-		fileInput.click();
-	}
-
-	async function handleFileSelect(e: Event) {
-		if (!appState.canEdit) return;
-		const target = e.target as HTMLInputElement;
-		const file = target.files?.[0];
-		if (!file) return;
-
-		try {
-			const text = await file.text();
-			const result = importState(text);
-
-			if (result.success) {
-				appState.importState(result.data);
-				toaster.success({
-					title: 'Import Successful',
-					description: 'Data imported successfully!'
-				});
-			} else {
-				const errorMessages = result.errors.map((e) => e.message).join(', ');
-				toaster.error({
-					title: 'Import Failed',
-					description: `Validation failed: ${errorMessages}`
-				});
-				console.error('Import validation errors:', result.errors);
-			}
-		} catch (error) {
-			toaster.error({
-				title: 'Import Failed',
-				description: 'Failed to import data. Please check the file format.'
-			});
-			console.error('Import error:', error);
+	async function loadTab(tab: TabKey) {
+		if (tab === 'calculator') {
+			await loadCalculator();
+			return;
 		}
+		if (tab === 'materials') {
+			await loadMaterialLibrary();
+			return;
+		}
+		if (tab === 'projects') {
+			await loadProjectList();
+			return;
+		}
+		if (tab === 'settings') {
+			await loadSettingsPanel();
+		}
+	}
 
-		target.value = '';
+	async function loadCalculator() {
+		if (CalculatorView) return;
+		const module = await import('$lib/components/Calculator.svelte');
+		CalculatorView = module.default;
+	}
+
+	async function loadMaterialLibrary() {
+		if (MaterialLibraryView) return;
+		const module = await import('$lib/components/MaterialLibrary.svelte');
+		MaterialLibraryView = module.default;
+	}
+
+	async function loadProjectList() {
+		if (ProjectListView) return;
+		const module = await import('$lib/components/ProjectList.svelte');
+		ProjectListView = module.default;
+	}
+
+	async function loadSettingsPanel() {
+		if (SettingsPanelView) return;
+		const module = await import('$lib/components/SettingsPanel.svelte');
+		SettingsPanelView = module.default;
+	}
+
+	async function prefetchTabs() {
+		await Promise.all([
+			loadCalculator(),
+			loadMaterialLibrary(),
+			loadProjectList(),
+			loadSettingsPanel()
+		]);
 	}
 
 	function handleSetupComplete(projectId: string | null) {
@@ -190,34 +163,7 @@
 			selectedProjectId = projectId;
 			appState.setLastSelectedProjectId(projectId);
 		}
-		activeTab = 'calculator';
-	}
-
-	function formatVisitDate(timestamp: number): string {
-		return new Date(timestamp).toLocaleString();
-	}
-
-	function handleLocalReset() {
-		if (resetConfirmation.trim() !== RESET_CONFIRMATION_TEXT) {
-			return;
-		}
-
-		clearLocalData();
-		appState.resetLocalState();
-		selectedProjectId = null;
-		resetConfirmation = '';
-		refreshProjectHistory();
-		toaster.success({
-			title: 'Local Data Cleared',
-			description: 'Local settings and cached data have been removed.'
-		});
-
-		if (typeof window !== 'undefined') {
-			const url = new URL(window.location.href);
-			url.search = '';
-			url.hash = '';
-			window.location.assign(url.toString());
-		}
+		setActiveTab('calculator');
 	}
 </script>
 
@@ -267,7 +213,10 @@
 		{/if}
 
 		<!-- Tabs Navigation -->
-		<Tabs value={activeTab} onValueChange={(details) => (activeTab = details.value)}>
+		<Tabs
+			value={activeTab}
+			onValueChange={(details) => setActiveTab(details.value as TabKey)}
+		>
 			<Tabs.List>
 				<Tabs.Trigger value="calculator">
 					<Calculator2 size={16} />
@@ -289,166 +238,41 @@
 			</Tabs.List>
 
 			<Tabs.Content value="calculator">
-				<Calculator {selectedProjectId} ongotoprojects={switchToProjects} ongotosettings={switchToSettings} />
+				{#if CalculatorView}
+					<CalculatorView
+						{selectedProjectId}
+						ongotoprojects={switchToProjects}
+						ongotosettings={switchToSettings}
+					/>
+				{:else}
+					<p class="text-sm text-surface-500 py-6">Loading calculator…</p>
+				{/if}
 			</Tabs.Content>
 
 			<Tabs.Content value="materials">
-				<MaterialLibrary />
+				{#if MaterialLibraryView}
+					<MaterialLibraryView />
+				{:else}
+					<p class="text-sm text-surface-500 py-6">Loading materials…</p>
+				{/if}
 			</Tabs.Content>
 
 			<Tabs.Content value="projects">
-				<ProjectList onselectproject={handleProjectSelect} />
+				{#if ProjectListView}
+					<ProjectListView
+						onselectproject={handleProjectSelect}
+					/>
+				{:else}
+					<p class="text-sm text-surface-500 py-6">Loading projects…</p>
+				{/if}
 			</Tabs.Content>
 
 			<Tabs.Content value="settings">
-				<div class="space-y-6 py-4">
-					<!-- Pricing Settings -->
-					<section>
-						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Pricing</h3>
-						<div class="space-y-4">
-							<label class="label">
-								<span class="label-text">Currency</span>
-								<select
-									class="select"
-									value={appState.settings.currencyCode || 'USD'}
-									onchange={handleCurrencyChange}
-									disabled={!appState.canEdit}
-									title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
-								>
-									{#each SUPPORTED_CURRENCIES as currency}
-										<option value={currency.code}>
-											{currency.symbol} - {currency.name} ({currency.code})
-										</option>
-									{/each}
-								</select>
-							</label>
-
-							<label class="label">
-								<span class="label-text">Labor Rate</span>
-								<div class="input-group grid-cols-[auto_1fr]">
-									<span class="ig-cell preset-filled-surface-200-800 text-surface-600-400">
-										{getCurrencySymbol(appState.settings)}
-									</span>
-									<input
-										type="number"
-										class="ig-input"
-										value={appState.settings.laborRate}
-										oninput={handleLaborRateChange}
-										min="0"
-										step="0.01"
-										placeholder="15.00"
-										disabled={!appState.canEdit}
-										title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
-									/>
-								</div>
-							</label>
-
-							<label class="label">
-								<span class="label-text">Rate Per</span>
-								<select
-									class="select"
-									value={appState.settings.laborRateUnit}
-									onchange={handleLaborRateUnitChange}
-									disabled={!appState.canEdit}
-									title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
-								>
-									{#each laborRateUnits as unit}
-										<option value={unit}>{getLaborRateUnitLabel(unit)}</option>
-									{/each}
-								</select>
-							</label>
-						</div>
-					</section>
-
-					<!-- Import/Export -->
-					<section>
-						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Import/Export</h3>
-						<div class="flex gap-2">
-							<button type="button" class="btn btn-sm preset-tonal-surface" onclick={handleExport}>
-								<Download size={16} />
-								<span>Export My Data</span>
-							</button>
-							<button
-								type="button"
-								class="btn btn-sm preset-tonal-surface"
-								onclick={handleImportClick}
-								disabled={!appState.canEdit}
-								title={!appState.canEdit ? 'Enter passphrase to import data' : undefined}
-							>
-								<Upload size={16} />
-								<span>Import My Data</span>
-							</button>
-							<input
-								type="file"
-								accept=".json"
-								class="hidden"
-								bind:this={fileInput}
-								onchange={handleFileSelect}
-							/>
-						</div>
-					</section>
-
-					<!-- Project History -->
-					<section>
-						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Project History</h3>
-						<div class="space-y-2">
-							{#if projectHistory.length === 0}
-								<p class="text-xs text-surface-500">No project history yet.</p>
-							{:else}
-								<ul class="space-y-2">
-									{#each projectHistory as entry}
-										<li class="card preset-tonal-surface p-3 space-y-1 text-xs">
-											<div class="flex items-start justify-between gap-3">
-												<a
-													class="text-primary-500 hover:underline break-all"
-													href={entry.url}
-													rel="noopener noreferrer"
-												>
-													{entry.url}
-												</a>
-												<span class="text-surface-500 whitespace-nowrap">
-													{formatVisitDate(entry.visitedAt)}
-												</span>
-											</div>
-											<div class="text-surface-500 break-all">ID: {entry.id}</div>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</div>
-					</section>
-
-					<!-- Reset Local Data -->
-					<section>
-						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Reset Local Data</h3>
-						<div class="card preset-tonal-surface p-4 space-y-3">
-							<p class="text-xs text-surface-500">
-								This clears saved settings, materials, projects, and history from this browser.
-								Workspace access remains intact.
-							</p>
-							<label class="label">
-								<span class="label-text">Type {RESET_CONFIRMATION_TEXT} to confirm</span>
-								<input
-									type="text"
-									class="input"
-									bind:value={resetConfirmation}
-									placeholder={RESET_CONFIRMATION_TEXT}
-								/>
-							</label>
-							<button
-								type="button"
-								class="btn preset-filled-error-500 w-full"
-								onclick={handleLocalReset}
-								disabled={resetConfirmation.trim() !== RESET_CONFIRMATION_TEXT}
-							>
-								<span>Clear Local Data</span>
-							</button>
-							<p class="text-xs text-surface-500">
-								After clearing, you'll return to the base URL to start fresh.
-							</p>
-						</div>
-					</section>
-				</div>
+				{#if SettingsPanelView}
+					<SettingsPanelView />
+				{:else}
+					<p class="text-sm text-surface-500 py-6">Loading settings…</p>
+				{/if}
 			</Tabs.Content>
 		</Tabs>
 	</main>
