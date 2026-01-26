@@ -37,7 +37,7 @@ jobs:
         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
 
       - name: Preview migrations (dry run)
-        if: inputs.dry_run
+        if: ${{ inputs.dry_run == true }}
         run: |
           echo "🔍 Previewing migrations that would be applied..."
           echo ""
