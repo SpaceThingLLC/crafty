@@ -4,6 +4,10 @@
 	import Upload from '@lucide/svelte/icons/upload';
 	import Eye from '@lucide/svelte/icons/eye';
 	import Plus from '@lucide/svelte/icons/plus';
+	import Calculator2 from '@lucide/svelte/icons/calculator';
+	import Boxes from '@lucide/svelte/icons/boxes';
+	import FolderOpen from '@lucide/svelte/icons/folder-open';
+	import Settings from '@lucide/svelte/icons/settings';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import Calculator from '$lib/components/Calculator.svelte';
 	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
@@ -214,10 +218,22 @@
 		<!-- Tabs Navigation -->
 		<Tabs value={activeTab} onValueChange={(details) => (activeTab = details.value)}>
 			<Tabs.List>
-				<Tabs.Trigger value="calculator">Calculator</Tabs.Trigger>
-				<Tabs.Trigger value="materials">Materials</Tabs.Trigger>
-				<Tabs.Trigger value="projects">Projects</Tabs.Trigger>
-				<Tabs.Trigger value="settings">Settings</Tabs.Trigger>
+				<Tabs.Trigger value="calculator">
+					<Calculator2 size={16} />
+					<span>Calculator</span>
+				</Tabs.Trigger>
+				<Tabs.Trigger value="materials">
+					<Boxes size={16} />
+					<span>Materials</span>
+				</Tabs.Trigger>
+				<Tabs.Trigger value="projects">
+					<FolderOpen size={16} />
+					<span>Projects</span>
+				</Tabs.Trigger>
+				<Tabs.Trigger value="settings">
+					<Settings size={16} />
+					<span>Settings</span>
+				</Tabs.Trigger>
 				<Tabs.Indicator />
 			</Tabs.List>
 
