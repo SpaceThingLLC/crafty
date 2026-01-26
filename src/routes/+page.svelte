@@ -23,8 +23,10 @@
 	import { getLaborRateUnitLabel, getCurrencySymbol } from '$lib/calculator';
 	import { SUPPORTED_CURRENCIES, getCurrencyConfig, type CurrencyCode } from '$lib/currencies';
 
-	// Show setup wizard when app has no data
-	const needsSetup = $derived(appState.materials.length === 0 && appState.projects.length === 0);
+	// Show setup wizard for the initial empty state until the user completes the flow.
+	let showSetupWizard = $state(
+		appState.materials.length === 0 && appState.projects.length === 0
+	);
 
 	let activeTab = $state('calculator');
 	let workspaceSetupOpen = $state(false);
@@ -168,6 +170,7 @@
 	}
 
 	function handleSetupComplete(projectId: string | null) {
+		showSetupWizard = false;
 		if (projectId) {
 			selectedProjectId = projectId;
 			appState.setLastSelectedProjectId(projectId);
@@ -180,7 +183,7 @@
 	<title>PriceMyCraft - Craft Cost Calculator</title>
 </svelte:head>
 
-{#if needsSetup}
+{#if showSetupWizard}
 	<main class="container mx-auto p-4 max-w-4xl">
 		<SetupWizard oncomplete={handleSetupComplete} />
 	</main>
