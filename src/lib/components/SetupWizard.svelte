@@ -617,9 +617,8 @@
 					<div class="p-3 bg-surface-100-900 rounded-lg">
 						<button
 							type="button"
-							class="w-full flex items-center justify-between"
-							onclick={() => (materialsExpanded = !materialsExpanded)}
-							disabled={addedMaterials.length === 0}
+							class="w-full flex items-center justify-between {addedMaterials.length === 0 ? 'cursor-default' : ''}"
+							onclick={() => addedMaterials.length > 0 && (materialsExpanded = !materialsExpanded)}
 						>
 							<div class="flex items-center gap-2">
 								<Package size={16} class="text-primary-500" />
@@ -653,9 +652,8 @@
 					<div class="p-3 bg-surface-100-900 rounded-lg">
 						<button
 							type="button"
-							class="w-full flex items-center justify-between"
-							onclick={() => (projectsExpanded = !projectsExpanded)}
-							disabled={addedProjects.length === 0}
+							class="w-full flex items-center justify-between {addedProjects.length === 0 ? 'cursor-default' : ''}"
+							onclick={() => addedProjects.length > 0 && (projectsExpanded = !projectsExpanded)}
 						>
 							<div class="flex items-center gap-2">
 								<FolderOpen size={16} class="text-primary-500" />
@@ -791,6 +789,13 @@
 									>
 										<WifiOff size={16} />
 										<span>Continue Offline</span>
+									</button>
+									<button
+										type="button"
+										class="btn preset-filled-primary-500 flex-1"
+										onclick={handleComplete}
+									>
+										<span>Try Again</span>
 									</button>
 								</div>
 							</div>
