@@ -37,10 +37,27 @@ export const ProjectSchema = z.object({
 export const LaborRateUnitSchema = z.enum(['hour', 'minute', '15min']);
 
 /**
+ * Supported currency codes (ISO 4217)
+ */
+export const CurrencyCodeSchema = z.enum([
+	'USD',
+	'CAD',
+	'EUR',
+	'GBP',
+	'AUD',
+	'MXN',
+	'JPY',
+	'CHF',
+	'NZD',
+	'INR'
+]);
+
+/**
  * Schema for application settings
  */
 export const SettingsSchema = z.object({
 	currencySymbol: z.string().min(1, 'Currency symbol is required'),
+	currencyCode: CurrencyCodeSchema.optional(),
 	laborRate: z.number().nonnegative('Labor rate must be non-negative'),
 	laborRateUnit: LaborRateUnitSchema,
 	laborRatePromptDismissed: z.boolean().optional()
