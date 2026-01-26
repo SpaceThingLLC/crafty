@@ -135,12 +135,13 @@ function createAppState() {
 		},
 
 		// Project actions
-		addProject(name: string) {
+		addProject(name: string, options?: { description?: string; materialIds?: string[] }) {
 			const now = Date.now();
 			const newProject: Project = {
 				id: generateId(),
 				name,
-				materials: [],
+				description: options?.description,
+				materials: (options?.materialIds ?? []).map((id) => ({ materialId: id, quantity: 1 })),
 				laborMinutes: 0,
 				createdAt: now,
 				updatedAt: now
