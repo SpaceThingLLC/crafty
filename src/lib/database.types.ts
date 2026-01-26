@@ -10,18 +10,21 @@ export interface Database {
 				Row: {
 					id: string;
 					passphrase_hash: string | null;
+					short_name: string;
 					created_at: string;
 					updated_at: string;
 				};
 				Insert: {
 					id?: string;
 					passphrase_hash?: string | null;
+					short_name?: string;
 					created_at?: string;
 					updated_at?: string;
 				};
 				Update: {
 					id?: string;
 					passphrase_hash?: string | null;
+					short_name?: string;
 					created_at?: string;
 					updated_at?: string;
 				};

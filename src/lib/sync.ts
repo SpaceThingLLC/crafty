@@ -6,9 +6,10 @@
 import {
 	createWorkspace,
 	fetchWorkspaceData,
+	fetchWorkspaceInfoById,
+	fetchWorkspaceInfoByShortName,
 	syncAllData,
 	verifyPassphrase,
-	workspaceExists,
 	isSupabaseConfigured
 } from './db';
 import { isOnline } from './supabase';
@@ -24,6 +25,17 @@ import { DEFAULT_STATE } from './types';
 
 const WORKSPACE_STORAGE_KEY = 'pricemycraft-workspace';
 const LEGACY_WORKSPACE_KEY = 'crafty-workspace';
+
+const UUID_PATTERN =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+	return UUID_PATTERN.test(value);
+}
+
+function getWorkspaceToken(workspace: Pick<WorkspaceInfo, 'id' | 'shortName'>): string {
+	return workspace.shortName ?? workspace.id;
+}
 
 /**
  * Load workspace info from localStorage
@@ -70,9 +82,9 @@ export function clearWorkspaceInfo(): void {
 }
 
 /**
- * Get workspace ID from URL query parameter
+ * Get workspace token from URL query parameter
  */
-export function getWorkspaceIdFromUrl(): string | null {
+export function getWorkspaceTokenFromUrl(): string | null {
 	if (typeof window === 'undefined') return null;
 
 	const params = new URLSearchParams(window.location.search);
@@ -80,33 +92,40 @@ export function getWorkspaceIdFromUrl(): string | null {
 }
 
 /**
- * Update URL with workspace ID (without reload)
+ * Update URL with workspace token (without reload)
  */
-export function setWorkspaceIdInUrl(workspaceId: string): void {
+export function setWorkspaceTokenInUrl(workspaceToken: string): void {
 	if (typeof window === 'undefined') return;
 
 	const url = new URL(window.location.href);
-	url.searchParams.set('w', workspaceId);
+	url.searchParams.set('w', workspaceToken);
 	window.history.replaceState({}, '', url.toString());
+}
+
+/**
+ * Update URL with workspace token (without reload)
+ */
+export function setWorkspaceInUrl(workspace: WorkspaceInfo): void {
+	setWorkspaceTokenInUrl(getWorkspaceToken(workspace));
 }
 
 /**
  * Get shareable URL for workspace
  */
-export function getShareableUrl(workspaceId: string): string {
+export function getShareableUrl(workspace: WorkspaceInfo): string {
 	if (typeof window === 'undefined') return '';
 
 	const url = new URL(window.location.href);
-	url.searchParams.set('w', workspaceId);
+	url.searchParams.set('w', getWorkspaceToken(workspace));
 	// Remove any other params that shouldn't be shared
 	return url.toString();
 }
 
-function recordWorkspaceVisit(workspaceId: string): void {
+function recordWorkspaceVisit(workspace: WorkspaceInfo): void {
 	if (typeof window === 'undefined') return;
-	const url = getShareableUrl(workspaceId);
+	const url = getShareableUrl(workspace);
 	if (!url) return;
-	recordProjectVisit({ id: workspaceId, url });
+	recordProjectVisit({ id: workspace.id, url });
 }
 
 /**
@@ -118,19 +137,20 @@ export async function createNewWorkspace(passphrase: string): Promise<WorkspaceI
 		return null;
 	}
 
-	const workspaceId = await createWorkspace(passphrase);
-	if (!workspaceId) return null;
+	const created = await createWorkspace(passphrase);
+	if (!created) return null;
 
 	const workspace: WorkspaceInfo = {
-		id: workspaceId,
+		id: created.id,
+		shortName: created.shortName,
 		passphrase,
 		isOwner: true,
 		createdAt: Date.now()
 	};
 
 	saveWorkspaceInfo(workspace);
-	setWorkspaceIdInUrl(workspaceId);
-	recordWorkspaceVisit(workspaceId);
+	setWorkspaceInUrl(workspace);
+	recordWorkspaceVisit(workspace);
 
 	return workspace;
 }
@@ -147,8 +167,8 @@ export async function joinWorkspace(
 	}
 
 	// Check if workspace exists
-	const exists = await workspaceExists(workspaceId);
-	if (!exists) {
+	const info = await fetchWorkspaceInfoById(workspaceId);
+	if (!info) {
 		return { success: false, isValid: false };
 	}
 
@@ -157,15 +177,16 @@ export async function joinWorkspace(
 
 	if (isValid) {
 		const workspace: WorkspaceInfo = {
-			id: workspaceId,
+			id: info.id,
+			shortName: info.shortName,
 			passphrase,
 			isOwner: false,
 			createdAt: Date.now()
 		};
 
 		saveWorkspaceInfo(workspace);
-		setWorkspaceIdInUrl(workspaceId);
-		recordWorkspaceVisit(workspaceId);
+		setWorkspaceInUrl(workspace);
+		recordWorkspaceVisit(workspace);
 	}
 
 	return { success: true, isValid };
@@ -179,23 +200,34 @@ export async function viewWorkspace(workspaceId: string): Promise<boolean> {
 		return false;
 	}
 
-	const exists = await workspaceExists(workspaceId);
-	if (!exists) {
+	const info = await fetchWorkspaceInfoById(workspaceId);
+	if (!info) {
 		return false;
 	}
 
 	const workspace: WorkspaceInfo = {
-		id: workspaceId,
+		id: info.id,
+		shortName: info.shortName,
 		passphrase: null,
 		isOwner: false,
 		createdAt: Date.now()
 	};
 
 	saveWorkspaceInfo(workspace);
-	setWorkspaceIdInUrl(workspaceId);
-	recordWorkspaceVisit(workspaceId);
+	setWorkspaceInUrl(workspace);
+	recordWorkspaceVisit(workspace);
 
 	return true;
+}
+
+async function resolveWorkspaceToken(
+	workspaceToken: string
+): Promise<{ id: string; shortName: string | null } | null> {
+	if (isUuid(workspaceToken)) {
+		return await fetchWorkspaceInfoById(workspaceToken);
+	}
+
+	return await fetchWorkspaceInfoByShortName(workspaceToken.toLowerCase());
 }
 
 /**
@@ -285,38 +317,48 @@ export class SyncManager {
 		remoteState: AppState | null;
 	}> {
 		// Check for workspace in URL first, then localStorage
-		const urlWorkspaceId = getWorkspaceIdFromUrl();
+		const urlWorkspaceToken = getWorkspaceTokenFromUrl();
 		let workspace = loadWorkspaceInfo();
 
 		// If URL has a different workspace, switch to it (view-only)
-		if (urlWorkspaceId && (!workspace || workspace.id !== urlWorkspaceId)) {
-			const exists = await workspaceExists(urlWorkspaceId);
-		if (exists) {
-			// Keep passphrase if same workspace, otherwise clear
-			const passphrase =
-				workspace?.id === urlWorkspaceId ? workspace.passphrase : null;
-			workspace = {
-				id: urlWorkspaceId,
-				passphrase,
-				isOwner: false,
-				createdAt: Date.now()
-			};
-			saveWorkspaceInfo(workspace);
-			recordWorkspaceVisit(urlWorkspaceId);
-		} else {
-			// Invalid workspace ID in URL
-			workspace = null;
-		}
+		if (urlWorkspaceToken) {
+			const resolved = await resolveWorkspaceToken(urlWorkspaceToken);
+			if (resolved) {
+				// Keep passphrase if same workspace, otherwise clear
+				const passphrase =
+					workspace?.id === resolved.id ? workspace.passphrase : null;
+				const shortName =
+					resolved.shortName ??
+					(workspace?.id === resolved.id ? workspace.shortName : null) ??
+					(isUuid(urlWorkspaceToken) ? null : urlWorkspaceToken);
+				workspace = {
+					id: resolved.id,
+					shortName,
+					passphrase,
+					isOwner: false,
+					createdAt: Date.now()
+				};
+				saveWorkspaceInfo(workspace);
+			} else {
+				// Invalid workspace token in URL
+				workspace = null;
+			}
+		} else if (workspace && !workspace.shortName) {
+			const resolved = await fetchWorkspaceInfoById(workspace.id);
+			if (resolved?.shortName) {
+				workspace = { ...workspace, shortName: resolved.shortName };
+				saveWorkspaceInfo(workspace);
+			}
 		}
 
 		this._workspace = workspace;
 
 		if (!workspace) {
 			this.setStatus('offline');
-		return { workspace: null, remoteState: null };
-	}
+			return { workspace: null, remoteState: null };
+		}
 
-	recordWorkspaceVisit(workspace.id);
+		recordWorkspaceVisit(workspace);
 
 		// Try to fetch remote data
 		const online = await isOnline();
