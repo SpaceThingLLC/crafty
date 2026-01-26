@@ -3,7 +3,7 @@ import {
 	loadWorkspaceInfo,
 	saveWorkspaceInfo,
 	clearWorkspaceInfo,
-	getWorkspaceIdFromUrl,
+	getWorkspaceTokenFromUrl,
 	getShareableUrl,
 	canEdit,
 	SyncManager
@@ -111,7 +111,7 @@ describe('sync', () => {
 		});
 	});
 
-	describe('getWorkspaceIdFromUrl', () => {
+	describe('getWorkspaceTokenFromUrl', () => {
 		let originalLocation: Location;
 
 		beforeEach(() => {
@@ -129,16 +129,16 @@ describe('sync', () => {
 			// @ts-expect-error - mocking window.location
 			window.location = new URL('http://localhost:5173');
 
-			const result = getWorkspaceIdFromUrl();
+			const result = getWorkspaceTokenFromUrl();
 
 			expect(result).toBeNull();
 		});
 
-		it('should return workspace id from URL', () => {
+		it('should return workspace token from URL', () => {
 			// @ts-expect-error - mocking window.location
 			window.location = new URL(`http://localhost:5173?w=${validUUID}`);
 
-			const result = getWorkspaceIdFromUrl();
+			const result = getWorkspaceTokenFromUrl();
 
 			expect(result).toBe(validUUID);
 		});
@@ -147,7 +147,7 @@ describe('sync', () => {
 			// @ts-expect-error - mocking window.location
 			window.location = new URL(`http://localhost:5173?foo=bar&w=${validUUID}&baz=qux`);
 
-			const result = getWorkspaceIdFromUrl();
+			const result = getWorkspaceTokenFromUrl();
 
 			expect(result).toBe(validUUID);
 		});
@@ -171,7 +171,7 @@ describe('sync', () => {
 			// @ts-expect-error - mocking window.location
 			window.location = new URL('http://localhost:5173');
 
-			const result = getShareableUrl(validUUID);
+			const result = getShareableUrl(validWorkspace);
 
 			expect(result).toBe(`http://localhost:5173/?w=${validUUID}`);
 		});
@@ -181,10 +181,24 @@ describe('sync', () => {
 			// @ts-expect-error - mocking window.location
 			window.location = new URL(`http://localhost:5173?w=${otherUUID}`);
 
-			const result = getShareableUrl(validUUID);
+			const result = getShareableUrl(validWorkspace);
 
 			expect(result).toContain(`w=${validUUID}`);
 			expect(result).not.toContain(otherUUID);
+		});
+
+		it('should use shortName when available', () => {
+			// @ts-expect-error - mocking window.location
+			window.location = new URL('http://localhost:5173');
+
+			const workspaceWithShortName: WorkspaceInfo = {
+				...validWorkspace,
+				shortName: 'my-project'
+			};
+
+			const result = getShareableUrl(workspaceWithShortName);
+
+			expect(result).toBe('http://localhost:5173/?w=my-project');
 		});
 	});
 
