@@ -277,4 +277,13 @@
 			</p>
 		</div>
 	</section>
+
+	<!-- Legal -->
+	<section>
+		<h3 class="text-sm font-medium text-surface-600-400 mb-3">Legal</h3>
+		<div class="card preset-tonal-surface p-4 space-y-2 text-sm">
+			<a class="text-primary-500 hover:underline" href="/privacy">Privacy Policy</a>
+			<a class="text-primary-500 hover:underline" href="/terms">Terms of Service</a>
+		</div>
+	</section>
 </div>
