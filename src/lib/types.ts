@@ -88,6 +88,7 @@ export interface ExtendedAppState extends AppState {
  */
 export const DEFAULT_SETTINGS: Settings = {
 	currencySymbol: '$',
+	currencyCode: 'USD',
 	laborRate: 0.33,
 	laborRateUnit: 'minute'
 };

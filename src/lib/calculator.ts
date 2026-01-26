@@ -1,4 +1,5 @@
 import type { Material, Project, ProjectMaterial, Settings, LaborRateUnit } from './types';
+import { getCurrencyConfig, migrateCurrencySymbol } from './currencies';
 
 /**
  * Calculate the cost of a single material usage in a project
@@ -51,11 +52,42 @@ export function calculateProjectTotal(project: Project, materials: Material[], s
 	return materialsCost + laborCost;
 }
 
+// Cache formatters for performance
+const formatterCache = new Map<string, Intl.NumberFormat>();
+
+function getFormatter(currencyCode: string): Intl.NumberFormat {
+	if (!formatterCache.has(currencyCode)) {
+		const config = getCurrencyConfig(currencyCode);
+		const locale = config?.locale || 'en-US';
+		formatterCache.set(
+			currencyCode,
+			new Intl.NumberFormat(locale, {
+				style: 'currency',
+				currency: currencyCode,
+				minimumFractionDigits: 2,
+				maximumFractionDigits: 2
+			})
+		);
+	}
+	return formatterCache.get(currencyCode)!;
+}
+
 /**
- * Format a number as currency
+ * Format a number as currency using Intl.NumberFormat
+ * Handles locale-specific formatting (symbol position, separators)
  */
-export function formatCurrency(amount: number, currencySymbol: string): string {
-	return `${currencySymbol}${amount.toFixed(2)}`;
+export function formatCurrency(amount: number, settings: Settings): string {
+	const currencyCode = settings.currencyCode || migrateCurrencySymbol(settings.currencySymbol);
+	return getFormatter(currencyCode).format(amount);
+}
+
+/**
+ * Get just the currency symbol for display (e.g., in input prefixes)
+ */
+export function getCurrencySymbol(settings: Settings): string {
+	const currencyCode = settings.currencyCode || 'USD';
+	const config = getCurrencyConfig(currencyCode);
+	return config?.symbol || '$';
 }
 
 /**
@@ -64,11 +96,11 @@ export function formatCurrency(amount: number, currencySymbol: string): string {
 export function getLaborRateUnitLabel(unit: LaborRateUnit): string {
 	switch (unit) {
 		case 'hour':
-			return 'hour';
+			return 'Hour';
 		case '15min':
-			return '15 minutes';
+			return '15 Minutes';
 		case 'minute':
 		default:
-			return 'minute';
+			return 'Minute';
 	}
 }

@@ -7,7 +7,7 @@
 	import Calculator2 from '@lucide/svelte/icons/calculator';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
-	import Settings from '@lucide/svelte/icons/settings';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import Calculator from '$lib/components/Calculator.svelte';
 	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
@@ -24,8 +24,9 @@
 		loadProjectHistory
 	} from '$lib/storage';
 	import { toaster } from '$lib/toaster.svelte';
-	import type { LaborRateUnit, ProjectHistoryEntry, WorkspaceInfo } from '$lib/types';
-	import { getLaborRateUnitLabel } from '$lib/calculator';
+	import type { LaborRateUnit, ProjectHistoryEntry, WorkspaceInfo, Settings } from '$lib/types';
+	import { getLaborRateUnitLabel, getCurrencySymbol } from '$lib/calculator';
+	import { SUPPORTED_CURRENCIES, getCurrencyConfig, type CurrencyCode } from '$lib/currencies';
 
 	// Show setup wizard when app has no data
 	const needsSetup = $derived(appState.materials.length === 0 && appState.projects.length === 0);
@@ -109,8 +110,13 @@
 
 	function handleCurrencyChange(e: Event) {
 		if (!appState.canEdit) return;
-		const target = e.target as HTMLInputElement;
-		appState.updateSettings({ currencySymbol: target.value || '$' });
+		const target = e.target as HTMLSelectElement;
+		const currencyCode = target.value as CurrencyCode;
+		const config = getCurrencyConfig(currencyCode);
+		appState.updateSettings({
+			currencyCode,
+			currencySymbol: config?.symbol || '$'
+		});
 	}
 
 	function handleLaborRateChange(e: Event) {
@@ -273,7 +279,7 @@
 					<span>Projects</span>
 				</Tabs.Trigger>
 				<Tabs.Trigger value="settings">
-					<Settings size={16} />
+					<SettingsIcon size={16} />
 					<span>Settings</span>
 				</Tabs.Trigger>
 				<Tabs.Indicator />
@@ -298,32 +304,40 @@
 						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Pricing</h3>
 						<div class="space-y-4">
 							<label class="label">
-								<span class="label-text">Currency Symbol</span>
-								<input
-									type="text"
-									class="input"
-									value={appState.settings.currencySymbol}
-									oninput={handleCurrencyChange}
-									maxlength="3"
-									placeholder="$"
+								<span class="label-text">Currency</span>
+								<select
+									class="select"
+									value={appState.settings.currencyCode || 'USD'}
+									onchange={handleCurrencyChange}
 									disabled={!appState.canEdit}
 									title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
-								/>
+								>
+									{#each SUPPORTED_CURRENCIES as currency}
+										<option value={currency.code}>
+											{currency.symbol} - {currency.name} ({currency.code})
+										</option>
+									{/each}
+								</select>
 							</label>
 
 							<label class="label">
 								<span class="label-text">Labor Rate</span>
-								<input
-									type="number"
-									class="input"
-									value={appState.settings.laborRate}
-									oninput={handleLaborRateChange}
-									min="0"
-									step="0.01"
-									placeholder="15.00"
-									disabled={!appState.canEdit}
-									title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
-								/>
+								<div class="input-group grid-cols-[auto_1fr]">
+									<span class="ig-cell preset-filled-surface-200-800 text-surface-600-400">
+										{getCurrencySymbol(appState.settings)}
+									</span>
+									<input
+										type="number"
+										class="ig-input"
+										value={appState.settings.laborRate}
+										oninput={handleLaborRateChange}
+										min="0"
+										step="0.01"
+										placeholder="15.00"
+										disabled={!appState.canEdit}
+										title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
+									/>
+								</div>
 							</label>
 
 							<label class="label">
@@ -343,23 +357,23 @@
 						</div>
 					</section>
 
-					<!-- Data Management -->
+					<!-- Import/Export -->
 					<section>
-						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Data</h3>
-						<div class="space-y-2">
-							<button type="button" class="btn preset-tonal-surface w-full" onclick={handleExport}>
-								<Download size={18} />
-								<span>Export Data</span>
+						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Import/Export</h3>
+						<div class="flex gap-2">
+							<button type="button" class="btn btn-sm preset-tonal-surface" onclick={handleExport}>
+								<Download size={16} />
+								<span>Export My Data</span>
 							</button>
 							<button
 								type="button"
-								class="btn preset-tonal-surface w-full"
+								class="btn btn-sm preset-tonal-surface"
 								onclick={handleImportClick}
 								disabled={!appState.canEdit}
 								title={!appState.canEdit ? 'Enter passphrase to import data' : undefined}
 							>
-								<Upload size={18} />
-								<span>Import Data</span>
+								<Upload size={16} />
+								<span>Import My Data</span>
 							</button>
 							<input
 								type="file"
@@ -368,9 +382,6 @@
 								bind:this={fileInput}
 								onchange={handleFileSelect}
 							/>
-							<p class="text-xs text-surface-500 mt-2">
-								Your data is saved locally in your browser. Export regularly to back up.
-							</p>
 						</div>
 					</section>
 

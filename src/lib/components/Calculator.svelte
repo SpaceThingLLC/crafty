@@ -87,7 +87,7 @@
 	const materialCollection = $derived(
 		useListCollection({
 			items: materialItems,
-			itemToString: (item) => `${item.name} (${formatCurrency(item.unitCost, appState.settings.currencySymbol)}/${item.unit})`,
+			itemToString: (item) => `${item.name} (${formatCurrency(item.unitCost, appState.settings)}/${item.unit})`,
 			itemToValue: (item) => item.id
 		})
 	);
@@ -295,7 +295,7 @@
 										{#each materialItems as item (item.id)}
 											<Combobox.Item {item}>
 												<Combobox.ItemText>
-													{item.name} ({formatCurrency(item.unitCost, appState.settings.currencySymbol)}/{item.unit})
+													{item.name} ({formatCurrency(item.unitCost, appState.settings)}/{item.unit})
 												</Combobox.ItemText>
 												<Combobox.ItemIndicator />
 											</Combobox.Item>
@@ -370,7 +370,7 @@
 									</div>
 									<span class="text-surface-600-400 text-sm">{material.unit}</span>
 									<span class="w-20 text-right font-medium">
-										{formatCurrency(calculateMaterialCost(pm, appState.materials), appState.settings.currencySymbol)}
+										{formatCurrency(calculateMaterialCost(pm, appState.materials), appState.settings)}
 									</span>
 									<button
 										type="button"
@@ -431,21 +431,21 @@
 				<div class="flex justify-between">
 					<span class="text-surface-600-400">Materials Subtotal:</span>
 					<span class="font-medium">
-						{formatCurrency(calculateMaterialsTotal(project, appState.materials), appState.settings.currencySymbol)}
+						{formatCurrency(calculateMaterialsTotal(project, appState.materials), appState.settings)}
 					</span>
 				</div>
 				<div class="flex justify-between">
 					<span class="text-surface-600-400">
-						Labor ({project.laborMinutes} min @ {formatCurrency(appState.settings.laborRate, appState.settings.currencySymbol)}/{getLaborRateUnitLabel(appState.settings.laborRateUnit)}):
+						Labor ({project.laborMinutes} min @ {formatCurrency(appState.settings.laborRate, appState.settings)}/{getLaborRateUnitLabel(appState.settings.laborRateUnit)}):
 					</span>
 					<span class="font-medium">
-						{formatCurrency(calculateLaborCost(project.laborMinutes, appState.settings), appState.settings.currencySymbol)}
+						{formatCurrency(calculateLaborCost(project.laborMinutes, appState.settings), appState.settings)}
 					</span>
 				</div>
 				<div class="flex justify-between text-lg border-t border-surface-300-700 pt-2">
 					<span class="font-bold">Suggested Price:</span>
 					<span class="font-bold text-primary-500">
-						{formatCurrency(calculateProjectTotal(project, appState.materials, appState.settings), appState.settings.currencySymbol)}
+						{formatCurrency(calculateProjectTotal(project, appState.materials, appState.settings), appState.settings)}
 					</span>
 				</div>
 			</div>

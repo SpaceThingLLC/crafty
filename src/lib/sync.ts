@@ -22,16 +22,30 @@ import type {
 } from './types';
 import { DEFAULT_STATE } from './types';
 
-const WORKSPACE_STORAGE_KEY = 'crafty-workspace';
+const WORKSPACE_STORAGE_KEY = 'pricemycraft-workspace';
+const LEGACY_WORKSPACE_KEY = 'crafty-workspace';
 
 /**
  * Load workspace info from localStorage
+ * Includes migration from legacy key (crafty-workspace) to new key (pricemycraft-workspace)
  */
 export function loadWorkspaceInfo(): WorkspaceInfo | null {
 	if (typeof localStorage === 'undefined') return null;
 
 	try {
-		const stored = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+		// Check new key first
+		let stored = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+
+		// If no data under new key, check legacy key and migrate
+		if (!stored) {
+			const legacyStored = localStorage.getItem(LEGACY_WORKSPACE_KEY);
+			if (legacyStored) {
+				localStorage.setItem(WORKSPACE_STORAGE_KEY, legacyStored);
+				localStorage.removeItem(LEGACY_WORKSPACE_KEY);
+				stored = legacyStored;
+			}
+		}
+
 		if (!stored) return null;
 		return JSON.parse(stored) as WorkspaceInfo;
 	} catch {
