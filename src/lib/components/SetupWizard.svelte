@@ -13,6 +13,9 @@
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import DollarSign from '@lucide/svelte/icons/dollar-sign';
+	import Layers from '@lucide/svelte/icons/layers';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { appState } from '$lib/state.svelte';
 	import { toaster } from '$lib/toaster.svelte';
 	import { getLaborRateUnitLabel, getCurrencySymbol, formatCurrency } from '$lib/calculator';
@@ -26,8 +29,8 @@
 
 	let { oncomplete }: Props = $props();
 
-	// Current step (1-4)
-	let currentStep = $state(1);
+	// Current step (0=landing, 1-4=wizard steps)
+	let currentStep = $state(0);
 
 	// Check Supabase config on client-side only
 	let isConfigured = $state(false);
@@ -258,16 +261,81 @@
 </script>
 
 <div class="min-h-[80vh] flex flex-col items-center justify-center px-4">
-	<!-- Header -->
-	<div class="text-center mb-8">
-		<div class="flex items-center justify-center gap-2 mb-2">
-			<Sparkles size={28} class="text-primary-500" />
-			<h1 class="text-3xl font-bold">Welcome to Crafty</h1>
-		</div>
-		<p class="text-surface-600-400">Let's set up your craft cost calculator</p>
-	</div>
+	{#if currentStep === 0}
+		<!-- Landing Page -->
+		<div class="text-center space-y-6 max-w-lg">
+			<!-- Hero -->
+			<div class="space-y-4">
+				<Sparkles size={56} class="mx-auto text-primary-500" />
+				<h1 class="text-4xl font-bold">PriceMyCraft</h1>
+				<p class="text-xl text-surface-600-400">Know what your crafts are really worth</p>
+			</div>
 
-	<!-- Progress Steps -->
+			<!-- Description -->
+			<p class="text-surface-600-400">
+				A simple calculator to help you price handmade items fairly by tracking material costs and valuing your time.
+			</p>
+
+			<!-- Features bento grid -->
+			<div class="grid grid-cols-2 gap-3 text-left max-w-md mx-auto">
+				<!-- Hero feature: full width, larger -->
+				<div class="col-span-2 p-5 rounded-xl bg-primary-500/15 border border-primary-500/30">
+					<div class="flex items-center gap-3 mb-2">
+						<DollarSign size={28} class="text-primary-500" />
+						<h3 class="font-semibold text-lg">Price Accurately</h3>
+					</div>
+					<p class="text-sm text-surface-600-400">Calculate the true cost of your crafts by combining material expenses with the value of your time.</p>
+				</div>
+
+				<!-- Materials: left column -->
+				<div class="p-4 rounded-xl bg-success-500/15 border border-success-500/30">
+					<div class="flex items-center gap-2 mb-2">
+						<Package size={20} class="text-success-500" />
+						<h3 class="font-semibold">Track Materials</h3>
+					</div>
+					<p class="text-xs text-surface-600-400">Build a library of supplies and costs</p>
+				</div>
+
+				<!-- Projects: right column -->
+				<div class="p-4 rounded-xl bg-warning-500/15 border border-warning-500/30">
+					<div class="flex items-center gap-2 mb-2">
+						<Layers size={20} class="text-warning-500" />
+						<h3 class="font-semibold">Manage Projects</h3>
+					</div>
+					<p class="text-xs text-surface-600-400">Organize all your crafts in one place</p>
+				</div>
+
+				<!-- Sync: full width, subtle -->
+				<div class="col-span-2 p-3 rounded-xl bg-surface-200-800 flex items-center gap-3">
+					<RefreshCw size={18} class="text-surface-500 shrink-0" />
+					<div>
+						<span class="font-medium text-sm">Sync Anywhere</span>
+						<span class="text-xs text-surface-500 ml-2">Optional cloud sync across devices</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- CTA -->
+			<button
+				type="button"
+				class="btn preset-filled-primary-500 btn-lg"
+				onclick={() => (currentStep = 1)}
+			>
+				<span>Begin Setup</span>
+				<ChevronRight size={20} />
+			</button>
+		</div>
+	{:else}
+		<!-- Header (for wizard steps) -->
+		<div class="text-center mb-8">
+			<div class="flex items-center justify-center gap-2 mb-2">
+				<Sparkles size={28} class="text-primary-500" />
+				<h1 class="text-3xl font-bold">Welcome to PriceMyCraft</h1>
+			</div>
+			<p class="text-surface-600-400">Let's set up your craft cost calculator</p>
+		</div>
+
+		<!-- Progress Steps -->
 	<nav aria-label="Setup progress" class="flex items-center gap-1 sm:gap-2 mb-8 overflow-x-auto">
 		{#each steps as step}
 			<div
@@ -823,9 +891,10 @@
 					</button>
 				</div>
 			</div>
-		{/if}
-	</div>
+			{/if}
+		</div>
 
-	<!-- Skip hint -->
-	<p class="text-xs text-surface-500 mt-4">All settings can be changed later</p>
+		<!-- Skip hint -->
+		<p class="text-xs text-surface-500 mt-4">All settings can be changed later</p>
+	{/if}
 </div>
