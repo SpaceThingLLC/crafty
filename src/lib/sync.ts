@@ -349,7 +349,7 @@ export class SyncManager {
 			if (resolved) {
 				// Keep passphrase if same workspace, otherwise clear
 				const isSameWorkspace = workspace?.id === resolved.id;
-				const passphrase = isSameWorkspace ? workspace.passphrase : null;
+				const passphrase = isSameWorkspace ? workspace?.passphrase ?? null : null;
 				if (!isSameWorkspace) {
 					clearWorkspaceSecret();
 				}
