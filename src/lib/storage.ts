@@ -1,4 +1,4 @@
-import type { AppState, ExtendedAppState, WorkspaceInfo } from './types';
+import type { AppState, ExtendedAppState, ProjectHistoryEntry, WorkspaceInfo } from './types';
 import { DEFAULT_STATE, DEFAULT_SETTINGS, DEFAULT_EXTENDED_STATE } from './types';
 import { AppStateSchema, type ValidationResult, formatValidationErrors } from './schemas';
 
@@ -6,6 +6,8 @@ const STORAGE_KEY = 'pricemycraft-app-state';
 const LEGACY_STORAGE_KEY = 'crafty-app-state';
 const WORKSPACE_KEY = 'pricemycraft-workspace';
 const SYNC_META_KEY = 'pricemycraft-sync-meta';
+const PROJECT_HISTORY_KEY = 'pricemycraft-project-history';
+const PROJECT_HISTORY_LIMIT = 10;
 
 // Legacy keys for migration
 const LEGACY_WORKSPACE_KEY = 'crafty-workspace';
@@ -125,6 +127,18 @@ export function clearState(): void {
 
 	localStorage.removeItem(STORAGE_KEY);
 	localStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
+/**
+ * Clear sync metadata (including legacy key)
+ */
+export function clearSyncMeta(): void {
+	if (!isBrowser()) {
+		return;
+	}
+
+	localStorage.removeItem(SYNC_META_KEY);
+	localStorage.removeItem(LEGACY_SYNC_META_KEY);
 }
 
 /**
@@ -289,6 +303,86 @@ export function saveSyncMeta(meta: SyncMeta): void {
 	} catch (error) {
 		console.error('Failed to save sync meta:', error);
 	}
+}
+
+/**
+ * Load recent workspace URL history
+ */
+export function loadProjectHistory(): ProjectHistoryEntry[] {
+	if (!isBrowser()) {
+		return [];
+	}
+
+	try {
+		const stored = localStorage.getItem(PROJECT_HISTORY_KEY);
+		if (!stored) return [];
+		const parsed = JSON.parse(stored);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter(
+			(item) =>
+				item &&
+				typeof item.id === 'string' &&
+				typeof item.url === 'string' &&
+				typeof item.visitedAt === 'number'
+		) as ProjectHistoryEntry[];
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Save recent workspace URL history
+ */
+export function saveProjectHistory(entries: ProjectHistoryEntry[]): void {
+	if (!isBrowser()) {
+		return;
+	}
+
+	try {
+		localStorage.setItem(PROJECT_HISTORY_KEY, JSON.stringify(entries));
+	} catch (error) {
+		console.error('Failed to save project history:', error);
+	}
+}
+
+/**
+ * Record a workspace visit for history
+ */
+export function recordProjectVisit(entry: { id: string; url: string }): void {
+	if (!isBrowser()) {
+		return;
+	}
+
+	const history = loadProjectHistory();
+	const normalizedUrl = entry.url;
+	const updatedEntry: ProjectHistoryEntry = {
+		id: entry.id,
+		url: normalizedUrl,
+		visitedAt: Date.now()
+	};
+	const deduped = history.filter((item) => item.id !== entry.id && item.url !== normalizedUrl);
+	const next = [updatedEntry, ...deduped].slice(0, PROJECT_HISTORY_LIMIT);
+	saveProjectHistory(next);
+}
+
+/**
+ * Clear workspace URL history
+ */
+export function clearProjectHistory(): void {
+	if (!isBrowser()) {
+		return;
+	}
+
+	localStorage.removeItem(PROJECT_HISTORY_KEY);
+}
+
+/**
+ * Clear local app data while keeping workspace access
+ */
+export function clearLocalData(): void {
+	clearState();
+	clearSyncMeta();
+	clearProjectHistory();
 }
 
 /**
