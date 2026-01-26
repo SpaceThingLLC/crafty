@@ -1,4 +1,4 @@
--- Crafty Cloud Sync Schema
+-- PriceMyCraft Cloud Sync Schema
 -- Run this in your Supabase SQL Editor to set up the database
 
 -- Enable required extensions

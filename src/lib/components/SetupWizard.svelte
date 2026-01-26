@@ -261,7 +261,7 @@
 	<div class="text-center mb-8">
 		<div class="flex items-center justify-center gap-2 mb-2">
 			<Sparkles size={28} class="text-primary-500" />
-			<h1 class="text-3xl font-bold">Welcome to Crafty</h1>
+			<h1 class="text-3xl font-bold">Welcome to PriceMyCraft</h1>
 		</div>
 		<p class="text-surface-600-400">Let's set up your craft cost calculator</p>
 	</div>
