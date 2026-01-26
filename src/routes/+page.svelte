@@ -17,7 +17,7 @@
 	import { toaster } from '$lib/toaster.svelte';
 	import type { LaborRateUnit, WorkspaceInfo, Settings } from '$lib/types';
 	import { getLaborRateUnitLabel, getCurrencySymbol } from '$lib/calculator';
-	import { SUPPORTED_CURRENCIES, getCurrencyConfig, type CurrencyConfig } from '$lib/currencies';
+	import { SUPPORTED_CURRENCIES, getCurrencyConfig, type CurrencyCode } from '$lib/currencies';
 
 	// Show setup wizard when app has no data
 	const needsSetup = $derived(appState.materials.length === 0 && appState.projects.length === 0);
@@ -92,10 +92,10 @@
 	function handleCurrencyChange(e: Event) {
 		if (!appState.canEdit) return;
 		const target = e.target as HTMLSelectElement;
-		const currencyCode = target.value as CurrencyConfig['code'];
+		const currencyCode = target.value as CurrencyCode;
 		const config = getCurrencyConfig(currencyCode);
 		appState.updateSettings({
-			currencyCode: currencyCode as Settings['currencyCode'],
+			currencyCode,
 			currencySymbol: config?.symbol || '$'
 		});
 	}

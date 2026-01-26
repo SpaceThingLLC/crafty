@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CURRENCY_CODES } from './currencies';
 
 /**
  * Schema for a material in the shared materials library
@@ -38,19 +39,9 @@ export const LaborRateUnitSchema = z.enum(['hour', 'minute', '15min']);
 
 /**
  * Supported currency codes (ISO 4217)
+ * Derived from SUPPORTED_CURRENCIES in currencies.ts - single source of truth
  */
-export const CurrencyCodeSchema = z.enum([
-	'USD',
-	'CAD',
-	'EUR',
-	'GBP',
-	'AUD',
-	'MXN',
-	'JPY',
-	'CHF',
-	'NZD',
-	'INR'
-]);
+export const CurrencyCodeSchema = z.enum(CURRENCY_CODES);
 
 /**
  * Schema for application settings

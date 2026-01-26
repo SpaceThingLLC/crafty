@@ -9,7 +9,7 @@ export interface CurrencyConfig {
 	locale: string; // Locale for Intl.NumberFormat
 }
 
-export const SUPPORTED_CURRENCIES: CurrencyConfig[] = [
+export const SUPPORTED_CURRENCIES = [
 	{ code: 'USD', symbol: '$', name: 'US Dollar', locale: 'en-US' },
 	{ code: 'CAD', symbol: '$', name: 'Canadian Dollar', locale: 'en-CA' },
 	{ code: 'EUR', symbol: '€', name: 'Euro', locale: 'de-DE' },
@@ -20,7 +20,15 @@ export const SUPPORTED_CURRENCIES: CurrencyConfig[] = [
 	{ code: 'CHF', symbol: 'CHF', name: 'Swiss Franc', locale: 'de-CH' },
 	{ code: 'NZD', symbol: '$', name: 'New Zealand Dollar', locale: 'en-NZ' },
 	{ code: 'INR', symbol: '₹', name: 'Indian Rupee', locale: 'en-IN' }
+] as const satisfies readonly CurrencyConfig[];
+
+/** Currency codes derived from SUPPORTED_CURRENCIES - single source of truth */
+export const CURRENCY_CODES = SUPPORTED_CURRENCIES.map((c) => c.code) as [
+	(typeof SUPPORTED_CURRENCIES)[number]['code'],
+	...(typeof SUPPORTED_CURRENCIES)[number]['code'][]
 ];
+
+export type CurrencyCode = (typeof SUPPORTED_CURRENCIES)[number]['code'];
 
 export const DEFAULT_CURRENCY_CODE = 'USD';
 
