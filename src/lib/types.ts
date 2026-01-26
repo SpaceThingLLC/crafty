@@ -59,6 +59,7 @@ export interface PendingChange {
  */
 export interface WorkspaceInfo {
 	id: string;
+	shortName?: string | null; // Human-friendly URL token
 	passphrase: string | null; // Stored locally for convenience
 	isOwner: boolean; // True if user created this workspace
 	createdAt: number;

@@ -48,6 +48,16 @@ interface ProjectMaterialRow {
 	material_unit: string;
 }
 
+interface WorkspaceLookupRow {
+	id: string;
+	short_name: string;
+}
+
+export interface WorkspaceLookup {
+	id: string;
+	shortName: string | null;
+}
+
 function settingsRowToSettings(row: SettingsRow): Settings {
 	return {
 		currencySymbol: row.currency_symbol,
@@ -81,7 +91,9 @@ function projectRowToProject(row: ProjectRow, materials: ProjectMaterial[]): Pro
 
 // Workspace operations
 
-export async function createWorkspace(passphrase: string | null): Promise<string | null> {
+export async function createWorkspace(
+	passphrase: string | null
+): Promise<WorkspaceLookup | null> {
 	const supabase = getSupabase();
 	if (!supabase) return null;
 
@@ -95,7 +107,9 @@ export async function createWorkspace(passphrase: string | null): Promise<string
 		return null;
 	}
 
-	return data as string;
+	const workspaceId = data as string;
+	const shortName = await fetchWorkspaceShortName(workspaceId);
+	return { id: workspaceId, shortName };
 }
 
 export async function verifyPassphrase(
@@ -120,16 +134,52 @@ export async function verifyPassphrase(
 }
 
 export async function workspaceExists(workspaceId: string): Promise<boolean> {
+	return (await fetchWorkspaceInfoById(workspaceId)) !== null;
+}
+
+export async function fetchWorkspaceInfoById(
+	workspaceId: string
+): Promise<WorkspaceLookup | null> {
 	const supabase = getSupabase();
-	if (!supabase) return false;
+	if (!supabase) return null;
 
 	const { data, error } = await supabase
 		.from('workspaces')
-		.select('id')
+		.select('id, short_name')
 		.eq('id', workspaceId)
 		.single();
 
-	return !error && data !== null;
+	if (error || !data) {
+		return null;
+	}
+
+	const row = data as WorkspaceLookupRow;
+	return { id: row.id, shortName: row.short_name };
+}
+
+export async function fetchWorkspaceInfoByShortName(
+	shortName: string
+): Promise<WorkspaceLookup | null> {
+	const supabase = getSupabase();
+	if (!supabase) return null;
+
+	const { data, error } = await supabase
+		.from('workspaces')
+		.select('id, short_name')
+		.eq('short_name', shortName)
+		.single();
+
+	if (error || !data) {
+		return null;
+	}
+
+	const row = data as WorkspaceLookupRow;
+	return { id: row.id, shortName: row.short_name };
+}
+
+export async function fetchWorkspaceShortName(workspaceId: string): Promise<string | null> {
+	const info = await fetchWorkspaceInfoById(workspaceId);
+	return info?.shortName ?? null;
 }
 
 // Read operations (public - no passphrase needed)

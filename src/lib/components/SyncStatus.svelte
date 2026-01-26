@@ -52,7 +52,7 @@
 	async function copyShareLink() {
 		if (!workspace) return;
 
-		const url = getShareableUrl(workspace.id);
+		const url = getShareableUrl(workspace);
 		try {
 			await navigator.clipboard.writeText(url);
 			toaster.success({

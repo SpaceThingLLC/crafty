@@ -7,7 +7,7 @@
 	import Eye from '@lucide/svelte/icons/eye';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import { toaster } from '$lib/toaster.svelte';
-	import { createNewWorkspace, getShareableUrl } from '$lib/sync';
+	import { createNewWorkspace } from '$lib/sync';
 	import { isSupabaseConfigured } from '$lib/db';
 	import type { WorkspaceInfo } from '$lib/types';
 
