@@ -92,8 +92,14 @@ describe('db', () => {
 
 	describe('createWorkspace', () => {
 		it('should call rpc with create_workspace', async () => {
+			const chain = createChainableMock();
+			(chain.single as ReturnType<typeof vi.fn>).mockResolvedValue({
+				data: { id: validUUID, short_name: 'test-short' },
+				error: null
+			});
+
 			const mockSupabase = {
-				from: vi.fn(),
+				from: vi.fn().mockReturnValue(chain),
 				rpc: vi.fn().mockResolvedValue({ data: validUUID, error: null })
 			};
 			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
@@ -103,7 +109,7 @@ describe('db', () => {
 			expect(mockSupabase.rpc).toHaveBeenCalledWith('create_workspace', {
 				p_passphrase: 'test-passphrase'
 			});
-			expect(result).toBe(validUUID);
+			expect(result).toEqual({ id: validUUID, shortName: 'test-short' });
 		});
 
 		it('should return null on error', async () => {
@@ -119,17 +125,24 @@ describe('db', () => {
 		});
 
 		it('should handle null passphrase', async () => {
+			const chain = createChainableMock();
+			(chain.single as ReturnType<typeof vi.fn>).mockResolvedValue({
+				data: { id: validUUID, short_name: null },
+				error: null
+			});
+
 			const mockSupabase = {
-				from: vi.fn(),
+				from: vi.fn().mockReturnValue(chain),
 				rpc: vi.fn().mockResolvedValue({ data: validUUID, error: null })
 			};
 			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
 
-			await createWorkspace(null);
+			const result = await createWorkspace(null);
 
 			expect(mockSupabase.rpc).toHaveBeenCalledWith('create_workspace', {
 				p_passphrase: null
 			});
+			expect(result).toEqual({ id: validUUID, shortName: null });
 		});
 
 		it('should return null when supabase is not available', async () => {
