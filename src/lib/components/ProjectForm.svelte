@@ -69,13 +69,11 @@
 			}
 		} else {
 			// Creating new project
-			const newProject = appState.addProject(name.trim(), {
+			appState.addProject(name.trim(), {
 				description: description.trim() || undefined,
-				materialIds: selectedMaterialIds
+				materialIds: selectedMaterialIds,
+				laborMinutes: laborMinutes > 0 ? laborMinutes : undefined
 			});
-			if (laborMinutes > 0) {
-				appState.updateProject(newProject.id, { laborMinutes });
-			}
 		}
 
 		onclose();
