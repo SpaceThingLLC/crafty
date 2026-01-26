@@ -7,7 +7,7 @@
 	import Calculator2 from '@lucide/svelte/icons/calculator';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
-	import Settings from '@lucide/svelte/icons/settings';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import Calculator from '$lib/components/Calculator.svelte';
 	import MaterialLibrary from '$lib/components/MaterialLibrary.svelte';
@@ -237,7 +237,7 @@
 					<span>Projects</span>
 				</Tabs.Trigger>
 				<Tabs.Trigger value="settings">
-					<Settings size={16} />
+					<SettingsIcon size={16} />
 					<span>Settings</span>
 				</Tabs.Trigger>
 				<Tabs.Indicator />

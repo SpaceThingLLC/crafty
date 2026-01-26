@@ -5,13 +5,17 @@
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Check from '@lucide/svelte/icons/check';
+	import ClipboardCheck from '@lucide/svelte/icons/clipboard-check';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Wifi from '@lucide/svelte/icons/wifi';
 	import WifiOff from '@lucide/svelte/icons/wifi-off';
 	import Plus from '@lucide/svelte/icons/plus';
-	import X from '@lucide/svelte/icons/x';
-	import Cloud from '@lucide/svelte/icons/cloud';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import DollarSign from '@lucide/svelte/icons/dollar-sign';
+	import Layers from '@lucide/svelte/icons/layers';
+	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { appState } from '$lib/state.svelte';
 	import { toaster } from '$lib/toaster.svelte';
 	import { getLaborRateUnitLabel, getCurrencySymbol, formatCurrency } from '$lib/calculator';
@@ -25,8 +29,8 @@
 
 	let { oncomplete }: Props = $props();
 
-	// Current step (1-4)
-	let currentStep = $state(1);
+	// Current step (0=landing, 1-4=wizard steps)
+	let currentStep = $state(0);
 
 	// Check Supabase config on client-side only
 	let isConfigured = $state(false);
@@ -37,7 +41,23 @@
 		hasCheckedConfig = true;
 	});
 
-	// Step 1: Workspace mode
+	// Step 1: Materials
+	let showMaterialForm = $state(false);
+	let materialName = $state('');
+	let materialCost = $state(0);
+	let materialUnit = $state('each');
+
+	// Step 2: Projects
+	let showProjectForm = $state(false);
+	let projectName = $state('');
+	let laborMinutes = $state(15);
+
+	// Step 3: Labor rate
+	let laborRate = $state(appState.settings.laborRate);
+	let laborRateUnit = $state<LaborRateUnit>(appState.settings.laborRateUnit);
+	const laborRateUnits: LaborRateUnit[] = ['minute', '15min', 'hour'];
+
+	// Step 4: Review & Sync
 	let workspaceMode = $state<'online' | 'offline'>('offline');
 	let passphrase = $state('');
 	let confirmPassphrase = $state('');
@@ -45,41 +65,139 @@
 	let createdWorkspace = $state<WorkspaceInfo | null>(null);
 	let workspaceCreationFailed = $state(false);
 
-	// Step 2: Labor rate
-	let laborRate = $state(appState.settings.laborRate);
-	let laborRateUnit = $state<LaborRateUnit>(appState.settings.laborRateUnit);
-	const laborRateUnits: LaborRateUnit[] = ['minute', '15min', 'hour'];
+	// Track items added during this setup session for the summary
+	let addedMaterialIds = $state<string[]>([]);
+	let addedProjectIds = $state<string[]>([]);
 
-	// Step 3: Materials (multiple)
-	interface SetupMaterial {
-		name: string;
-		unitCost: number;
-		unit: string;
-	}
-	let setupMaterials = $state<SetupMaterial[]>([]);
-	let showMaterialForm = $state(false);
-	let materialName = $state('');
-	let materialCost = $state(0);
-	let materialUnit = $state('each');
+	// Expandable sections in review step
+	let materialsExpanded = $state(false);
+	let projectsExpanded = $state(false);
 
-	// Step 4: Projects (multiple)
-	interface SetupProject {
-		name: string;
-		laborMinutes: number;
-	}
-	let setupProjects = $state<SetupProject[]>([]);
-	let showProjectForm = $state(false);
-	let projectName = $state('');
-	let laborMinutes = $state(15);
+	// Derived: get materials and projects added during this session
+	const addedMaterials = $derived(
+		appState.materials.filter((m) => addedMaterialIds.includes(m.id))
+	);
+	const addedProjects = $derived(
+		appState.projects.filter((p) => addedProjectIds.includes(p.id))
+	);
 
 	const steps = [
-		{ number: 1, title: 'Storage', icon: Cloud },
-		{ number: 2, title: 'Time Cost', icon: Clock },
-		{ number: 3, title: 'Materials', icon: Package },
-		{ number: 4, title: 'Projects', icon: FolderOpen }
+		{ number: 1, title: 'Materials', icon: Package },
+		{ number: 2, title: 'Projects', icon: FolderOpen },
+		{ number: 3, title: 'Time Cost', icon: Clock },
+		{ number: 4, title: 'Review', icon: ClipboardCheck }
 	];
 
-	async function handleStep1Next() {
+	// Step 1: Materials → Step 2
+	function handleStep1Next() {
+		currentStep = 2;
+	}
+
+	// Step 2: Projects → Step 3
+	function handleStep2Next() {
+		currentStep = 3;
+	}
+
+	// Step 3: Labor Rate → Step 4
+	function handleStep3Next() {
+		if (laborRate <= 0) {
+			toaster.error({
+				title: 'Enter a Labor Rate',
+				description: 'Please enter how much your time is worth.'
+			});
+			return;
+		}
+
+		appState.updateSettings({
+			laborRate,
+			laborRateUnit
+		});
+
+		currentStep = 4;
+	}
+
+	// Step 4: Handle workspace creation failure - continue offline
+	function handleContinueOffline() {
+		workspaceMode = 'offline';
+		workspaceCreationFailed = false;
+		passphrase = '';
+		confirmPassphrase = '';
+	}
+
+	// Material management - saves directly to appState
+	function resetMaterialForm() {
+		materialName = '';
+		materialCost = 0;
+		materialUnit = 'each';
+		showMaterialForm = false;
+	}
+
+	function addMaterial() {
+		if (!materialName.trim()) {
+			toaster.error({
+				title: 'Enter Material Name',
+				description: 'Please give your material a name.'
+			});
+			return;
+		}
+
+		// Save directly to appState (persists to localStorage immediately)
+		const material = appState.addMaterial({
+			name: materialName.trim(),
+			unitCost: materialCost,
+			unit: materialUnit.trim() || 'each'
+		});
+
+		// Track this material as added during setup
+		addedMaterialIds = [...addedMaterialIds, material.id];
+
+		resetMaterialForm();
+	}
+
+	function removeMaterial(materialId: string) {
+		// Remove from appState
+		appState.deleteMaterial(materialId);
+		// Remove from tracking
+		addedMaterialIds = addedMaterialIds.filter((id) => id !== materialId);
+	}
+
+	// Project management - saves directly to appState
+	function resetProjectForm() {
+		projectName = '';
+		laborMinutes = 15;
+		showProjectForm = false;
+	}
+
+	function addProject() {
+		if (!projectName.trim()) {
+			toaster.error({
+				title: 'Enter Project Name',
+				description: 'Please give your project a name.'
+			});
+			return;
+		}
+
+		// Save directly to appState (persists to localStorage immediately)
+		const project = appState.addProject(projectName.trim(), {
+			laborMinutes: laborMinutes
+		});
+
+		// Track this project as added during setup
+		addedProjectIds = [...addedProjectIds, project.id];
+
+		resetProjectForm();
+	}
+
+	function removeProject(projectId: string) {
+		// Remove from appState
+		appState.deleteProject(projectId);
+		// Remove from tracking
+		addedProjectIds = addedProjectIds.filter((id) => id !== projectId);
+	}
+
+	// Step 4: Complete setup (optionally create workspace)
+	async function handleComplete() {
+		// If user chose online sync, create the workspace
 		if (workspaceMode === 'online') {
 			if (!passphrase.trim()) {
 				toaster.error({
@@ -113,10 +231,12 @@
 					createdWorkspace = workspace;
 					appState.setWorkspace(workspace);
 					toaster.success({
-						title: 'Workspace Created',
-						description: 'Your online workspace is ready!'
+						title: 'Setup Complete!',
+						description: 'Your data is synced online.'
 					});
-					currentStep = 2;
+					// Get first project for navigation
+					const firstProjectId = addedProjectIds.length > 0 ? addedProjectIds[0] : null;
+					oncomplete(firstProjectId, workspace);
 				} else {
 					workspaceCreationFailed = true;
 				}
@@ -129,144 +249,93 @@
 			return;
 		}
 
-		currentStep = 2;
-	}
-
-	function handleContinueOffline() {
-		workspaceMode = 'offline';
-		workspaceCreationFailed = false;
-		passphrase = '';
-		confirmPassphrase = '';
-		currentStep = 2;
-	}
-
-	function handleStep2Next() {
-		if (laborRate <= 0) {
-			toaster.error({
-				title: 'Enter a Labor Rate',
-				description: 'Please enter how much your time is worth.'
-			});
-			return;
-		}
-
-		appState.updateSettings({
-			laborRate,
-			laborRateUnit
-		});
-
-		currentStep = 3;
-	}
-
-	// Material management
-	function resetMaterialForm() {
-		materialName = '';
-		materialCost = 0;
-		materialUnit = 'each';
-		showMaterialForm = false;
-	}
-
-	function addMaterial() {
-		if (!materialName.trim()) {
-			toaster.error({
-				title: 'Enter Material Name',
-				description: 'Please give your material a name.'
-			});
-			return;
-		}
-
-		setupMaterials = [
-			...setupMaterials,
-			{
-				name: materialName.trim(),
-				unitCost: materialCost,
-				unit: materialUnit.trim() || 'each'
-			}
-		];
-
-		resetMaterialForm();
-	}
-
-	function removeMaterial(index: number) {
-		setupMaterials = setupMaterials.filter((_, i) => i !== index);
-	}
-
-	function handleStep3Next() {
-		// Save all materials to appState
-		setupMaterials.forEach((m) => {
-			appState.addMaterial({
-				name: m.name,
-				unitCost: m.unitCost,
-				unit: m.unit
-			});
-		});
-
-		currentStep = 4;
-	}
-
-	// Project management
-	function resetProjectForm() {
-		projectName = '';
-		laborMinutes = 15;
-		showProjectForm = false;
-	}
-
-	function addProject() {
-		if (!projectName.trim()) {
-			toaster.error({
-				title: 'Enter Project Name',
-				description: 'Please give your project a name.'
-			});
-			return;
-		}
-
-		setupProjects = [
-			...setupProjects,
-			{
-				name: projectName.trim(),
-				laborMinutes: laborMinutes
-			}
-		];
-
-		resetProjectForm();
-	}
-
-	function removeProject(index: number) {
-		setupProjects = setupProjects.filter((_, i) => i !== index);
-	}
-
-	function handleComplete() {
-		// Save all projects to appState
-		let firstProjectId: string | null = null;
-
-		setupProjects.forEach((p, index) => {
-			const project = appState.addProject(p.name, {
-				laborMinutes: p.laborMinutes
-			});
-			if (index === 0) {
-				firstProjectId = project.id;
-			}
-		});
-
+		// Offline mode - data is already saved locally
 		toaster.success({
 			title: 'Setup Complete!',
 			description: "You're ready to start calculating costs."
 		});
 
+		const firstProjectId = addedProjectIds.length > 0 ? addedProjectIds[0] : null;
 		oncomplete(firstProjectId, createdWorkspace ?? undefined);
 	}
 </script>
 
 <div class="min-h-[80vh] flex flex-col items-center justify-center px-4">
-	<!-- Header -->
-	<div class="text-center mb-8">
-		<div class="flex items-center justify-center gap-2 mb-2">
-			<Sparkles size={28} class="text-primary-500" />
-			<h1 class="text-3xl font-bold">Welcome to PriceMyCraft</h1>
-		</div>
-		<p class="text-surface-600-400">Let's set up your craft cost calculator</p>
-	</div>
+	{#if currentStep === 0}
+		<!-- Landing Page -->
+		<div class="text-center space-y-6 max-w-lg">
+			<!-- Hero -->
+			<div class="space-y-4">
+				<Sparkles size={56} class="mx-auto text-primary-500" />
+				<h1 class="text-4xl font-bold">PriceMyCraft</h1>
+				<p class="text-xl text-surface-600-400">Know what your crafts are really worth</p>
+			</div>
 
-	<!-- Progress Steps -->
+			<!-- Description -->
+			<p class="text-surface-600-400">
+				A simple calculator to help you price handmade items fairly by tracking material costs and valuing your time.
+			</p>
+
+			<!-- Features bento grid -->
+			<div class="grid grid-cols-2 gap-3 text-left max-w-md mx-auto">
+				<!-- Hero feature: full width, larger -->
+				<div class="col-span-2 p-5 rounded-xl bg-primary-500/15 border border-primary-500/30">
+					<div class="flex items-center gap-3 mb-2">
+						<DollarSign size={28} class="text-primary-500" />
+						<h3 class="font-semibold text-lg">Price Accurately</h3>
+					</div>
+					<p class="text-sm text-surface-600-400">Calculate the true cost of your crafts by combining material expenses with the value of your time.</p>
+				</div>
+
+				<!-- Materials: left column -->
+				<div class="p-4 rounded-xl bg-success-500/15 border border-success-500/30">
+					<div class="flex items-center gap-2 mb-2">
+						<Package size={20} class="text-success-500" />
+						<h3 class="font-semibold">Track Materials</h3>
+					</div>
+					<p class="text-xs text-surface-600-400">Build a library of supplies and costs</p>
+				</div>
+
+				<!-- Projects: right column -->
+				<div class="p-4 rounded-xl bg-warning-500/15 border border-warning-500/30">
+					<div class="flex items-center gap-2 mb-2">
+						<Layers size={20} class="text-warning-500" />
+						<h3 class="font-semibold">Manage Projects</h3>
+					</div>
+					<p class="text-xs text-surface-600-400">Organize all your crafts in one place</p>
+				</div>
+
+				<!-- Sync: full width, subtle -->
+				<div class="col-span-2 p-3 rounded-xl bg-surface-200-800 flex items-center gap-3">
+					<RefreshCw size={18} class="text-surface-500 shrink-0" />
+					<div>
+						<span class="font-medium text-sm">Sync Anywhere</span>
+						<span class="text-xs text-surface-500 ml-2">Optional cloud sync across devices</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- CTA -->
+			<button
+				type="button"
+				class="btn preset-filled-primary-500 btn-lg"
+				onclick={() => (currentStep = 1)}
+			>
+				<span>Begin Setup</span>
+				<ChevronRight size={20} />
+			</button>
+		</div>
+	{:else}
+		<!-- Header (for wizard steps) -->
+		<div class="text-center mb-8">
+			<div class="flex items-center justify-center gap-2 mb-2">
+				<Sparkles size={28} class="text-primary-500" />
+				<h1 class="text-3xl font-bold">Welcome to PriceMyCraft</h1>
+			</div>
+			<p class="text-surface-600-400">Let's set up your craft cost calculator</p>
+		</div>
+
+		<!-- Progress Steps -->
 	<nav aria-label="Setup progress" class="flex items-center gap-1 sm:gap-2 mb-8 overflow-x-auto">
 		{#each steps as step}
 			<div
@@ -289,8 +358,7 @@
 					{#if currentStep > step.number}
 						<Check size={16} aria-hidden="true" />
 					{:else}
-						{@const Icon = step.icon}
-						<Icon size={16} aria-hidden="true" />
+						{step.number}
 					{/if}
 				</div>
 				<span
@@ -309,213 +377,7 @@
 	<!-- Step Content -->
 	<div class="card preset-outlined-surface-500 w-full max-w-md p-6">
 		{#if currentStep === 1}
-			<!-- Step 1: Workspace Mode -->
-			<div class="space-y-4">
-				<div class="text-center mb-6">
-					<Cloud size={32} class="mx-auto mb-2 text-primary-500" />
-					<h2 class="text-xl font-semibold">Where should we store your data?</h2>
-					<p class="text-sm text-surface-600-400 mt-1">
-						Choose how you want to save and access your crafts.
-					</p>
-				</div>
-
-				{#if !hasCheckedConfig}
-					<div class="flex items-center justify-center p-4">
-						<span class="text-surface-500">Loading...</span>
-					</div>
-				{:else}
-					<!-- Mode Selection -->
-					<div class="space-y-3">
-						<button
-							type="button"
-							class="w-full p-4 rounded-lg border-2 transition-all text-left flex items-start gap-3
-								{workspaceMode === 'offline'
-								? 'border-primary-500 bg-primary-500/10'
-								: 'border-surface-300-700 hover:border-surface-400-600'}"
-							onclick={() => (workspaceMode = 'offline')}
-						>
-							<WifiOff
-								size={24}
-								class={workspaceMode === 'offline' ? 'text-primary-500' : 'text-surface-500'}
-							/>
-							<div>
-								<div class="font-medium">Store Locally</div>
-								<div class="text-sm text-surface-600-400">
-									Data stays on this device only. No account needed.
-								</div>
-							</div>
-						</button>
-
-						<button
-							type="button"
-							class="w-full p-4 rounded-lg border-2 transition-all text-left flex items-start gap-3
-								{workspaceMode === 'online'
-								? 'border-primary-500 bg-primary-500/10'
-								: 'border-surface-300-700 hover:border-surface-400-600'}
-								{!isConfigured ? 'opacity-50 cursor-not-allowed' : ''}"
-							onclick={() => isConfigured && (workspaceMode = 'online')}
-							disabled={!isConfigured}
-						>
-							<Wifi
-								size={24}
-								class={workspaceMode === 'online' ? 'text-primary-500' : 'text-surface-500'}
-							/>
-							<div>
-								<div class="font-medium">
-									Sync Online
-									{#if !isConfigured}
-										<span class="text-xs text-surface-500 ml-1">(Not available)</span>
-									{/if}
-								</div>
-								<div class="text-sm text-surface-600-400">
-									Access from any device. Share with others.
-								</div>
-							</div>
-						</button>
-					</div>
-
-					<!-- Passphrase fields (only when online is selected) -->
-					{#if workspaceMode === 'online' && isConfigured}
-						<div class="space-y-4 pt-4 border-t border-surface-300-700">
-							<p class="text-sm text-surface-600-400">
-								Set a passphrase to protect your workspace. Anyone with the link can view, but only
-								you can edit.
-							</p>
-
-							<label class="label">
-								<span class="label-text">Passphrase</span>
-								<input
-									type="password"
-									class="input"
-									bind:value={passphrase}
-									placeholder="Enter a memorable passphrase"
-									disabled={isCreatingWorkspace}
-								/>
-							</label>
-
-							<label class="label">
-								<span class="label-text">Confirm Passphrase</span>
-								<input
-									type="password"
-									class="input"
-									bind:value={confirmPassphrase}
-									placeholder="Enter passphrase again"
-									disabled={isCreatingWorkspace}
-								/>
-							</label>
-
-							<p class="text-xs text-surface-500">
-								Remember this passphrase! It's required to edit your data from other devices.
-							</p>
-						</div>
-
-						<!-- Workspace creation failure UI -->
-						{#if workspaceCreationFailed}
-							<div class="p-4 bg-error-500/10 border border-error-500/30 rounded-lg space-y-3">
-								<p class="text-sm text-error-600 dark:text-error-400 font-medium">
-									Unable to create online workspace
-								</p>
-								<p class="text-xs text-surface-600-400">
-									There was a problem connecting to the server. You can try again or continue with local-only storage.
-								</p>
-								<div class="flex gap-2">
-									<button
-										type="button"
-										class="btn preset-tonal-surface flex-1"
-										onclick={handleContinueOffline}
-									>
-										<WifiOff size={16} />
-										<span>Continue Offline</span>
-									</button>
-									<button
-										type="button"
-										class="btn preset-filled-primary-500 flex-1"
-										onclick={handleStep1Next}
-									>
-										<span>Try Again</span>
-									</button>
-								</div>
-							</div>
-						{/if}
-					{/if}
-
-					{#if !workspaceCreationFailed}
-						<button
-							type="button"
-							class="btn preset-filled-primary-500 w-full mt-4"
-							onclick={handleStep1Next}
-							disabled={isCreatingWorkspace}
-						>
-							{#if isCreatingWorkspace}
-								<span>Creating workspace...</span>
-							{:else}
-								<span>Next: Set Your Labor Rate</span>
-								<ChevronRight size={18} />
-							{/if}
-						</button>
-					{/if}
-				{/if}
-			</div>
-		{:else if currentStep === 2}
-			<!-- Step 2: Labor Rate -->
-			<div class="space-y-4">
-				<div class="text-center mb-6">
-					<Clock size={32} class="mx-auto mb-2 text-primary-500" />
-					<h2 class="text-xl font-semibold">How much is your time worth?</h2>
-					<p class="text-sm text-surface-600-400 mt-1">
-						This helps calculate the labor cost for your projects.
-					</p>
-				</div>
-
-				<div class="grid grid-cols-2 gap-4">
-					<label class="label">
-						<span class="label-text">Your Rate</span>
-						<div class="input-group grid-cols-[auto_1fr]">
-							<span class="ig-cell preset-filled-surface-200-800 text-surface-600-400"
-								>{getCurrencySymbol(appState.settings)}</span
-							>
-							<input
-								type="number"
-								class="ig-input"
-								bind:value={laborRate}
-								min="0"
-								step="0.01"
-								placeholder="15.00"
-							/>
-						</div>
-					</label>
-
-					<label class="label">
-						<span class="label-text">Per</span>
-						<select class="select" bind:value={laborRateUnit}>
-							{#each laborRateUnits as unit}
-								<option value={unit}>{getLaborRateUnitLabel(unit)}</option>
-							{/each}
-						</select>
-					</label>
-				</div>
-
-				<p class="text-xs text-surface-500 text-center">
-					Example: If you want to earn $15/hour, enter 15 and select "hour"
-				</p>
-
-				<div class="flex gap-2 mt-4">
-					<button type="button" class="btn preset-tonal-surface" onclick={() => (currentStep = 1)}>
-						<ChevronLeft size={18} />
-						<span>Back</span>
-					</button>
-					<button
-						type="button"
-						class="btn preset-filled-primary-500 flex-1"
-						onclick={handleStep2Next}
-					>
-						<span>Next: Add Materials</span>
-						<ChevronRight size={18} />
-					</button>
-				</div>
-			</div>
-		{:else if currentStep === 3}
-			<!-- Step 3: Materials (Multiple) -->
+			<!-- Step 1: Materials -->
 			<div class="space-y-4">
 				<div class="text-center mb-6">
 					<Package size={32} class="mx-auto mb-2 text-primary-500" />
@@ -524,9 +386,9 @@
 				</div>
 
 				<!-- Added Materials List -->
-				{#if setupMaterials.length > 0}
+				{#if addedMaterials.length > 0}
 					<div class="space-y-2 max-h-40 overflow-y-auto">
-						{#each setupMaterials as material, index}
+						{#each addedMaterials as material (material.id)}
 							<div
 								class="flex items-center justify-between p-3 bg-surface-100-900 rounded-lg"
 							>
@@ -538,11 +400,11 @@
 								</div>
 								<button
 									type="button"
-									class="btn btn-sm preset-tonal-surface"
-									onclick={() => removeMaterial(index)}
+									class="btn-icon btn-sm preset-tonal-error"
+									onclick={() => removeMaterial(material.id)}
 									aria-label="Remove {material.name}"
 								>
-									<X size={16} />
+									<Trash2 size={16} />
 								</button>
 							</div>
 						{/each}
@@ -612,33 +474,27 @@
 						onclick={() => (showMaterialForm = true)}
 					>
 						<Plus size={18} />
-						<span>{setupMaterials.length === 0 ? 'Add a Material' : 'Add Another Material'}</span>
+						<span>{addedMaterials.length === 0 ? 'Add a Material' : 'Add Another Material'}</span>
 					</button>
 				{/if}
 
-				<p class="text-xs text-surface-500 text-center">
-					{setupMaterials.length === 0
-						? 'You can skip this step and add materials later'
-						: `${setupMaterials.length} material${setupMaterials.length === 1 ? '' : 's'} added`}
-				</p>
+				{#if addedMaterials.length === 0}
+					<p class="text-xs text-surface-500 text-center">
+						You can skip this step and add materials later
+					</p>
+				{/if}
 
-				<div class="flex gap-2 mt-4">
-					<button type="button" class="btn preset-tonal-surface" onclick={() => (currentStep = 2)}>
-						<ChevronLeft size={18} />
-						<span>Back</span>
-					</button>
-					<button
-						type="button"
-						class="btn preset-filled-primary-500 flex-1"
-						onclick={handleStep3Next}
-					>
-						<span>Next: Add Projects</span>
-						<ChevronRight size={18} />
-					</button>
-				</div>
+				<button
+					type="button"
+					class="btn preset-filled-primary-500 w-full mt-4"
+					onclick={handleStep1Next}
+				>
+					<span>Next: Add Projects</span>
+					<ChevronRight size={18} />
+				</button>
 			</div>
-		{:else if currentStep === 4}
-			<!-- Step 4: Projects (Multiple) -->
+		{:else if currentStep === 2}
+			<!-- Step 2: Projects -->
 			<div class="space-y-4">
 				<div class="text-center mb-6">
 					<FolderOpen size={32} class="mx-auto mb-2 text-primary-500" />
@@ -647,9 +503,9 @@
 				</div>
 
 				<!-- Added Projects List -->
-				{#if setupProjects.length > 0}
+				{#if addedProjects.length > 0}
 					<div class="space-y-2 max-h-40 overflow-y-auto">
-						{#each setupProjects as project, index}
+						{#each addedProjects as project (project.id)}
 							<div
 								class="flex items-center justify-between p-3 bg-surface-100-900 rounded-lg"
 							>
@@ -661,11 +517,11 @@
 								</div>
 								<button
 									type="button"
-									class="btn btn-sm preset-tonal-surface"
-									onclick={() => removeProject(index)}
+									class="btn-icon btn-sm preset-tonal-error"
+									onclick={() => removeProject(project.id)}
 									aria-label="Remove {project.name}"
 								>
-									<X size={16} />
+									<Trash2 size={16} />
 								</button>
 							</div>
 						{/each}
@@ -718,15 +574,302 @@
 						onclick={() => (showProjectForm = true)}
 					>
 						<Plus size={18} />
-						<span>{setupProjects.length === 0 ? 'Add a Project' : 'Add Another Project'}</span>
+						<span>{addedProjects.length === 0 ? 'Add a Project' : 'Add Another Project'}</span>
 					</button>
 				{/if}
 
+				{#if addedProjects.length === 0}
+					<p class="text-xs text-surface-500 text-center">
+						You can skip this step and add projects later
+					</p>
+				{/if}
+
+				<div class="flex gap-2 mt-4">
+					<button type="button" class="btn preset-tonal-surface" onclick={() => (currentStep = 1)}>
+						<ChevronLeft size={18} />
+						<span>Back</span>
+					</button>
+					<button
+						type="button"
+						class="btn preset-filled-primary-500 flex-1"
+						onclick={handleStep2Next}
+					>
+						<span>Next: Set Time Cost</span>
+						<ChevronRight size={18} />
+					</button>
+				</div>
+			</div>
+		{:else if currentStep === 3}
+			<!-- Step 3: Labor Rate -->
+			<div class="space-y-4">
+				<div class="text-center mb-6">
+					<Clock size={32} class="mx-auto mb-2 text-primary-500" />
+					<h2 class="text-xl font-semibold">How much is your time worth?</h2>
+					<p class="text-sm text-surface-600-400 mt-1">
+						This helps calculate the labor cost for your projects.
+					</p>
+				</div>
+
+				<div class="grid grid-cols-2 gap-4">
+					<label class="label">
+						<span class="label-text">Your Rate</span>
+						<div class="input-group grid-cols-[auto_1fr]">
+							<span class="ig-cell preset-filled-surface-200-800 text-surface-600-400"
+								>{appState.settings.currencySymbol}</span
+							>
+							<input
+								type="number"
+								class="ig-input"
+								bind:value={laborRate}
+								min="0"
+								step="0.01"
+								placeholder="15.00"
+							/>
+						</div>
+					</label>
+
+					<label class="label">
+						<span class="label-text">Per</span>
+						<select class="select" bind:value={laborRateUnit}>
+							{#each laborRateUnits as unit}
+								<option value={unit}>{getLaborRateUnitLabel(unit)}</option>
+							{/each}
+						</select>
+					</label>
+				</div>
+
 				<p class="text-xs text-surface-500 text-center">
-					{setupProjects.length === 0
-						? 'You can skip this step and add projects later'
-						: `${setupProjects.length} project${setupProjects.length === 1 ? '' : 's'} added`}
+					Example: If you want to earn $15/hour, enter 15 and select "hour"
 				</p>
+
+				<div class="flex gap-2 mt-4">
+					<button type="button" class="btn preset-tonal-surface" onclick={() => (currentStep = 2)}>
+						<ChevronLeft size={18} />
+						<span>Back</span>
+					</button>
+					<button
+						type="button"
+						class="btn preset-filled-primary-500 flex-1"
+						onclick={handleStep3Next}
+					>
+						<span>Next: Review</span>
+						<ChevronRight size={18} />
+					</button>
+				</div>
+			</div>
+		{:else if currentStep === 4}
+			<!-- Step 4: Review & Sync -->
+			<div class="space-y-4">
+				<div class="text-center mb-6">
+					<ClipboardCheck size={32} class="mx-auto mb-2 text-primary-500" />
+					<h2 class="text-xl font-semibold">Review your setup</h2>
+					<p class="text-sm text-surface-600-400 mt-1">
+						Here's what you've configured
+					</p>
+				</div>
+
+				<!-- Summary -->
+				<div class="space-y-3">
+					<!-- Labor Rate Summary -->
+					<div class="p-3 bg-surface-100-900 rounded-lg">
+						<div class="flex items-center gap-2">
+							<Clock size={16} class="text-primary-500" />
+							<span class="font-medium">Labor Rate</span>
+						</div>
+						<p class="text-sm text-surface-600-400 mt-1">
+							{appState.settings.currencySymbol}{appState.settings.laborRate.toFixed(2)} per {getLaborRateUnitLabel(appState.settings.laborRateUnit)}
+						</p>
+					</div>
+
+					<!-- Materials Summary -->
+					<div class="p-3 bg-surface-100-900 rounded-lg">
+						<button
+							type="button"
+							class="w-full flex items-center justify-between {addedMaterials.length === 0 ? 'cursor-default' : ''}"
+							onclick={() => addedMaterials.length > 0 && (materialsExpanded = !materialsExpanded)}
+						>
+							<div class="flex items-center gap-2">
+								<Package size={16} class="text-primary-500" />
+								<span class="font-medium">Materials</span>
+								<span class="text-xs bg-surface-200-800 px-2 py-0.5 rounded-full">
+									{addedMaterials.length}
+								</span>
+							</div>
+							{#if addedMaterials.length > 0}
+								<ChevronDown
+									size={16}
+									class="text-surface-500 transition-transform {materialsExpanded ? 'rotate-180' : ''}"
+								/>
+							{/if}
+						</button>
+						{#if materialsExpanded && addedMaterials.length > 0}
+							<ul class="mt-2 space-y-1 text-sm text-surface-600-400">
+								{#each addedMaterials as material (material.id)}
+									<li class="flex justify-between">
+										<span>{material.name}</span>
+										<span>{appState.settings.currencySymbol}{material.unitCost.toFixed(2)}/{material.unit}</span>
+									</li>
+								{/each}
+							</ul>
+						{:else if addedMaterials.length === 0}
+							<p class="text-sm text-surface-500 mt-1">None added yet</p>
+						{/if}
+					</div>
+
+					<!-- Projects Summary -->
+					<div class="p-3 bg-surface-100-900 rounded-lg">
+						<button
+							type="button"
+							class="w-full flex items-center justify-between {addedProjects.length === 0 ? 'cursor-default' : ''}"
+							onclick={() => addedProjects.length > 0 && (projectsExpanded = !projectsExpanded)}
+						>
+							<div class="flex items-center gap-2">
+								<FolderOpen size={16} class="text-primary-500" />
+								<span class="font-medium">Projects</span>
+								<span class="text-xs bg-surface-200-800 px-2 py-0.5 rounded-full">
+									{addedProjects.length}
+								</span>
+							</div>
+							{#if addedProjects.length > 0}
+								<ChevronDown
+									size={16}
+									class="text-surface-500 transition-transform {projectsExpanded ? 'rotate-180' : ''}"
+								/>
+							{/if}
+						</button>
+						{#if projectsExpanded && addedProjects.length > 0}
+							<ul class="mt-2 space-y-1 text-sm text-surface-600-400">
+								{#each addedProjects as project (project.id)}
+									<li class="flex justify-between">
+										<span>{project.name}</span>
+										<span>{project.laborMinutes} min</span>
+									</li>
+								{/each}
+							</ul>
+						{:else if addedProjects.length === 0}
+							<p class="text-sm text-surface-500 mt-1">None added yet</p>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Storage Selection -->
+				{#if !hasCheckedConfig}
+					<div class="flex items-center justify-center p-4">
+						<span class="text-surface-500">Loading...</span>
+					</div>
+				{:else}
+					<div class="pt-4 border-t border-surface-300-700">
+						<p class="text-sm font-medium mb-3">Where should we store your data?</p>
+						<div class="space-y-2">
+							<button
+								type="button"
+								class="w-full p-3 rounded-lg border-2 transition-all text-left flex items-center gap-3
+									{workspaceMode === 'offline'
+									? 'border-primary-500 bg-primary-500/10'
+									: 'border-surface-300-700 hover:border-surface-400-600'}"
+								onclick={() => (workspaceMode = 'offline')}
+							>
+								<WifiOff
+									size={20}
+									class={workspaceMode === 'offline' ? 'text-primary-500' : 'text-surface-500'}
+								/>
+								<div>
+									<div class="font-medium text-sm">Store Locally</div>
+									<div class="text-xs text-surface-600-400">
+										Data stays on this device only
+									</div>
+								</div>
+							</button>
+
+							<button
+								type="button"
+								class="w-full p-3 rounded-lg border-2 transition-all text-left flex items-center gap-3
+									{workspaceMode === 'online'
+									? 'border-primary-500 bg-primary-500/10'
+									: 'border-surface-300-700 hover:border-surface-400-600'}
+									{!isConfigured ? 'opacity-50 cursor-not-allowed' : ''}"
+								onclick={() => isConfigured && (workspaceMode = 'online')}
+								disabled={!isConfigured}
+							>
+								<Wifi
+									size={20}
+									class={workspaceMode === 'online' ? 'text-primary-500' : 'text-surface-500'}
+								/>
+								<div>
+									<div class="font-medium text-sm">
+										Sync Online
+										{#if !isConfigured}
+											<span class="text-xs text-surface-500 ml-1">(Not available)</span>
+										{/if}
+									</div>
+									<div class="text-xs text-surface-600-400">
+										Access from any device
+									</div>
+								</div>
+							</button>
+						</div>
+					</div>
+
+					<!-- Passphrase fields (only when online is selected) -->
+					{#if workspaceMode === 'online' && isConfigured}
+						<div class="space-y-3">
+							<label class="label">
+								<span class="label-text">Passphrase</span>
+								<input
+									type="password"
+									class="input"
+									bind:value={passphrase}
+									placeholder="Enter a memorable passphrase"
+									disabled={isCreatingWorkspace}
+								/>
+							</label>
+
+							<label class="label">
+								<span class="label-text">Confirm Passphrase</span>
+								<input
+									type="password"
+									class="input"
+									bind:value={confirmPassphrase}
+									placeholder="Enter passphrase again"
+									disabled={isCreatingWorkspace}
+								/>
+							</label>
+
+							<p class="text-xs text-surface-500">
+								Remember this passphrase! It's required to edit your data from other devices.
+							</p>
+						</div>
+
+						<!-- Workspace creation failure UI -->
+						{#if workspaceCreationFailed}
+							<div class="p-4 bg-error-500/10 border border-error-500/30 rounded-lg space-y-3">
+								<p class="text-sm text-error-600 dark:text-error-400 font-medium">
+									Unable to create online workspace
+								</p>
+								<p class="text-xs text-surface-600-400">
+									There was a problem connecting to the server. You can try again or continue with local-only storage.
+								</p>
+								<div class="flex gap-2">
+									<button
+										type="button"
+										class="btn preset-tonal-surface flex-1"
+										onclick={handleContinueOffline}
+									>
+										<WifiOff size={16} />
+										<span>Continue Offline</span>
+									</button>
+									<button
+										type="button"
+										class="btn preset-filled-primary-500 flex-1"
+										onclick={handleComplete}
+									>
+										<span>Try Again</span>
+									</button>
+								</div>
+							</div>
+						{/if}
+					{/if}
+				{/if}
 
 				<div class="flex gap-2 mt-4">
 					<button type="button" class="btn preset-tonal-surface" onclick={() => (currentStep = 3)}>
@@ -737,15 +880,21 @@
 						type="button"
 						class="btn preset-filled-success-500 flex-1"
 						onclick={handleComplete}
+						disabled={isCreatingWorkspace}
 					>
-						<Sparkles size={18} />
-						<span>Get Started!</span>
+						{#if isCreatingWorkspace}
+							<span>Creating workspace...</span>
+						{:else}
+							<Sparkles size={18} />
+							<span>Get Started!</span>
+						{/if}
 					</button>
 				</div>
 			</div>
-		{/if}
-	</div>
+			{/if}
+		</div>
 
-	<!-- Skip hint -->
-	<p class="text-xs text-surface-500 mt-4">All settings can be changed later</p>
+		<!-- Skip hint -->
+		<p class="text-xs text-surface-500 mt-4">All settings can be changed later</p>
+	{/if}
 </div>
