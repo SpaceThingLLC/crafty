@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CURRENCY_CODES } from './currencies';
 
 /**
  * Schema for a material in the shared materials library
@@ -38,10 +39,17 @@ export const ProjectSchema = z.object({
 export const LaborRateUnitSchema = z.enum(['hour', 'minute', '15min']);
 
 /**
+ * Supported currency codes (ISO 4217)
+ * Derived from SUPPORTED_CURRENCIES in currencies.ts - single source of truth
+ */
+export const CurrencyCodeSchema = z.enum(CURRENCY_CODES);
+
+/**
  * Schema for application settings
  */
 export const SettingsSchema = z.object({
 	currencySymbol: z.string().min(1, 'Currency symbol is required'),
+	currencyCode: CurrencyCodeSchema.optional(),
 	laborRate: z.number().nonnegative('Labor rate must be non-negative'),
 	laborRateUnit: LaborRateUnitSchema,
 	laborRatePromptDismissed: z.boolean().optional()

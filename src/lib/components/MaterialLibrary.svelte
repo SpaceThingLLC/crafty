@@ -78,7 +78,7 @@
 					<div class="flex-1">
 						<span class="font-medium">{material.name}</span>
 						<span class="text-surface-600-400 text-sm ml-2">
-							{formatCurrency(material.unitCost, appState.settings.currencySymbol)}/{material.unit}
+							{formatCurrency(material.unitCost, appState.settings)}/{material.unit}
 						</span>
 						{#if material.notes}
 							<p class="text-surface-500 text-xs mt-1">{material.notes}</p>

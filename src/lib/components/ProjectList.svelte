@@ -64,7 +64,7 @@
 
 	function getProjectTotal(project: Project): string {
 		const total = calculateProjectTotal(project, appState.materials, appState.settings);
-		return formatCurrency(total, appState.settings.currencySymbol);
+		return formatCurrency(total, appState.settings);
 	}
 </script>
 
