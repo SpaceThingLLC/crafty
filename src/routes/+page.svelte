@@ -17,9 +17,14 @@
 	import WorkspaceSetup from '$lib/components/WorkspaceSetup.svelte';
 	import PassphraseModal from '$lib/components/PassphraseModal.svelte';
 	import { appState } from '$lib/state.svelte';
-	import { downloadState, importState } from '$lib/storage';
+	import {
+		clearLocalData,
+		downloadState,
+		importState,
+		loadProjectHistory
+	} from '$lib/storage';
 	import { toaster } from '$lib/toaster.svelte';
-	import type { LaborRateUnit, WorkspaceInfo } from '$lib/types';
+	import type { LaborRateUnit, ProjectHistoryEntry, WorkspaceInfo } from '$lib/types';
 	import { getLaborRateUnitLabel } from '$lib/calculator';
 
 	// Show setup wizard when app has no data
@@ -28,10 +33,15 @@
 	let activeTab = $state('calculator');
 	let workspaceSetupOpen = $state(false);
 	let passphraseModalOpen = $state(false);
+	let projectHistory = $state<ProjectHistoryEntry[]>([]);
+	let resetConfirmation = $state('');
+
+	const RESET_CONFIRMATION_TEXT = 'RESET';
 
 	// Initialize sync on mount
 	onMount(async () => {
 		await appState.initializeSync();
+		refreshProjectHistory();
 	});
 
 	function handleWorkspaceCreated(workspace: WorkspaceInfo) {
@@ -40,6 +50,7 @@
 			appState.resetState();
 		}
 		appState.setWorkspace(workspace);
+		refreshProjectHistory();
 		// Sync initial data to the new workspace
 		appState.sync();
 	}
@@ -86,6 +97,10 @@
 
 	function switchToSettings() {
 		activeTab = 'settings';
+	}
+
+	function refreshProjectHistory() {
+		projectHistory = loadProjectHistory();
 	}
 
 	// Settings state and handlers
@@ -167,6 +182,33 @@
 			appState.setLastSelectedProjectId(projectId);
 		}
 		activeTab = 'calculator';
+	}
+
+	function formatVisitDate(timestamp: number): string {
+		return new Date(timestamp).toLocaleString();
+	}
+
+	function handleLocalReset() {
+		if (resetConfirmation.trim() !== RESET_CONFIRMATION_TEXT) {
+			return;
+		}
+
+		clearLocalData();
+		appState.resetLocalState();
+		selectedProjectId = null;
+		resetConfirmation = '';
+		refreshProjectHistory();
+		toaster.success({
+			title: 'Local Data Cleared',
+			description: 'Local settings and cached data have been removed.'
+		});
+
+		if (typeof window !== 'undefined') {
+			const url = new URL(window.location.href);
+			url.search = '';
+			url.hash = '';
+			window.location.assign(url.toString());
+		}
 	}
 </script>
 
@@ -328,6 +370,67 @@
 							/>
 							<p class="text-xs text-surface-500 mt-2">
 								Your data is saved locally in your browser. Export regularly to back up.
+							</p>
+						</div>
+					</section>
+
+					<!-- Project History -->
+					<section>
+						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Project History</h3>
+						<div class="space-y-2">
+							{#if projectHistory.length === 0}
+								<p class="text-xs text-surface-500">No project history yet.</p>
+							{:else}
+								<ul class="space-y-2">
+									{#each projectHistory as entry}
+										<li class="card preset-tonal-surface p-3 space-y-1 text-xs">
+											<div class="flex items-start justify-between gap-3">
+												<a
+													class="text-primary-500 hover:underline break-all"
+													href={entry.url}
+													rel="noopener noreferrer"
+												>
+													{entry.url}
+												</a>
+												<span class="text-surface-500 whitespace-nowrap">
+													{formatVisitDate(entry.visitedAt)}
+												</span>
+											</div>
+											<div class="text-surface-500 break-all">ID: {entry.id}</div>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					</section>
+
+					<!-- Reset Local Data -->
+					<section>
+						<h3 class="text-sm font-medium text-surface-600-400 mb-3">Reset Local Data</h3>
+						<div class="card preset-tonal-surface p-4 space-y-3">
+							<p class="text-xs text-surface-500">
+								This clears saved settings, materials, projects, and history from this browser.
+								Workspace access remains intact.
+							</p>
+							<label class="label">
+								<span class="label-text">Type {RESET_CONFIRMATION_TEXT} to confirm</span>
+								<input
+									type="text"
+									class="input"
+									bind:value={resetConfirmation}
+									placeholder={RESET_CONFIRMATION_TEXT}
+								/>
+							</label>
+							<button
+								type="button"
+								class="btn preset-filled-error-500 w-full"
+								onclick={handleLocalReset}
+								disabled={resetConfirmation.trim() !== RESET_CONFIRMATION_TEXT}
+							>
+								<span>Clear Local Data</span>
+							</button>
+							<p class="text-xs text-surface-500">
+								After clearing, you'll return to the base URL to start fresh.
 							</p>
 						</div>
 					</section>

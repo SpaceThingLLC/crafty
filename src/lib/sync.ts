@@ -12,6 +12,7 @@ import {
 	isSupabaseConfigured
 } from './db';
 import { isOnline } from './supabase';
+import { recordProjectVisit } from './storage';
 import type {
 	AppState,
 	ExtendedAppState,
@@ -87,6 +88,13 @@ export function getShareableUrl(workspaceId: string): string {
 	return url.toString();
 }
 
+function recordWorkspaceVisit(workspaceId: string): void {
+	if (typeof window === 'undefined') return;
+	const url = getShareableUrl(workspaceId);
+	if (!url) return;
+	recordProjectVisit({ id: workspaceId, url });
+}
+
 /**
  * Create a new workspace
  */
@@ -108,6 +116,7 @@ export async function createNewWorkspace(passphrase: string): Promise<WorkspaceI
 
 	saveWorkspaceInfo(workspace);
 	setWorkspaceIdInUrl(workspaceId);
+	recordWorkspaceVisit(workspaceId);
 
 	return workspace;
 }
@@ -142,6 +151,7 @@ export async function joinWorkspace(
 
 		saveWorkspaceInfo(workspace);
 		setWorkspaceIdInUrl(workspaceId);
+		recordWorkspaceVisit(workspaceId);
 	}
 
 	return { success: true, isValid };
@@ -169,6 +179,7 @@ export async function viewWorkspace(workspaceId: string): Promise<boolean> {
 
 	saveWorkspaceInfo(workspace);
 	setWorkspaceIdInUrl(workspaceId);
+	recordWorkspaceVisit(workspaceId);
 
 	return true;
 }
@@ -266,29 +277,32 @@ export class SyncManager {
 		// If URL has a different workspace, switch to it (view-only)
 		if (urlWorkspaceId && (!workspace || workspace.id !== urlWorkspaceId)) {
 			const exists = await workspaceExists(urlWorkspaceId);
-			if (exists) {
-				// Keep passphrase if same workspace, otherwise clear
-				const passphrase =
-					workspace?.id === urlWorkspaceId ? workspace.passphrase : null;
-				workspace = {
-					id: urlWorkspaceId,
-					passphrase,
-					isOwner: false,
-					createdAt: Date.now()
-				};
-				saveWorkspaceInfo(workspace);
-			} else {
-				// Invalid workspace ID in URL
-				workspace = null;
-			}
+		if (exists) {
+			// Keep passphrase if same workspace, otherwise clear
+			const passphrase =
+				workspace?.id === urlWorkspaceId ? workspace.passphrase : null;
+			workspace = {
+				id: urlWorkspaceId,
+				passphrase,
+				isOwner: false,
+				createdAt: Date.now()
+			};
+			saveWorkspaceInfo(workspace);
+			recordWorkspaceVisit(urlWorkspaceId);
+		} else {
+			// Invalid workspace ID in URL
+			workspace = null;
+		}
 		}
 
 		this._workspace = workspace;
 
 		if (!workspace) {
 			this.setStatus('offline');
-			return { workspace: null, remoteState: null };
-		}
+		return { workspace: null, remoteState: null };
+	}
+
+	recordWorkspaceVisit(workspace.id);
 
 		// Try to fetch remote data
 		const online = await isOnline();
