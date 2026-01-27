@@ -119,6 +119,30 @@ describe('schemas', () => {
 			});
 			expect(result.success).toBe(true);
 		});
+
+		it('should accept material with optional cost', () => {
+			const result = MaterialSchema.safeParse({
+				...validMaterial,
+				cost: 3.5
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('should reject negative cost', () => {
+			const result = MaterialSchema.safeParse({
+				...validMaterial,
+				cost: -5
+			});
+			expect(result.success).toBe(false);
+		});
+
+		it('should accept zero cost', () => {
+			const result = MaterialSchema.safeParse({
+				...validMaterial,
+				cost: 0
+			});
+			expect(result.success).toBe(true);
+		});
 	});
 
 	describe('ProjectMaterialSchema', () => {

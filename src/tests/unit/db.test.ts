@@ -185,6 +185,7 @@ describe('db', () => {
 						unit_cost: 5.99,
 						unit: 'each',
 						notes: null,
+						cost: 3.5,
 						created_at: new Date().toISOString(),
 						updated_at: new Date().toISOString()
 					}
