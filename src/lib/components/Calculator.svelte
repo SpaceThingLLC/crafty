@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Minus from '@lucide/svelte/icons/minus';
 	import Plus from '@lucide/svelte/icons/plus';
+	import Printer from '@lucide/svelte/icons/printer';
 	import X from '@lucide/svelte/icons/x';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { appState } from '$lib/state.svelte';
@@ -201,6 +202,13 @@
 		const minutes = parseInt(target.value);
 		if (!isNaN(minutes) && minutes >= 0 && internalSelectedId) {
 			appState.updateProject(internalSelectedId, { laborMinutes: minutes });
+		}
+	}
+
+	// Open print view for current project
+	function handlePrintProject() {
+		if (internalSelectedId) {
+			window.open(`/print/project?id=${internalSelectedId}`, '_blank');
 		}
 	}
 </script>
@@ -447,6 +455,18 @@
 					<span class="font-bold text-primary-500">
 						{formatCurrency(calculateProjectTotal(project, appState.materials, appState.settings), appState.settings)}
 					</span>
+				</div>
+
+				<!-- Print Button -->
+				<div class="mt-4 pt-4 border-t border-surface-300-700">
+					<button
+						type="button"
+						class="btn btn-sm preset-tonal-surface w-full"
+						onclick={handlePrintProject}
+					>
+						<Printer size={16} />
+						<span>Print Project Details</span>
+					</button>
 				</div>
 			</div>
 		</div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SquarePlus from '@lucide/svelte/icons/square-plus';
 	import Pencil from '@lucide/svelte/icons/pencil';
+	import Printer from '@lucide/svelte/icons/printer';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Calculator from '@lucide/svelte/icons/calculator';
 	import { appState } from '$lib/state.svelte';
@@ -66,17 +67,32 @@
 		const total = calculateProjectTotal(project, appState.materials, appState.settings);
 		return formatCurrency(total, appState.settings);
 	}
+
+	function handlePrintPriceSheet() {
+		window.open('/print/price-sheet', '_blank');
+	}
 </script>
 
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Your Projects</h3>
-		{#if appState.canEdit}
-			<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
-				<SquarePlus size={16} />
-				<span>New Project</span>
+		<div class="flex gap-2">
+			<button
+				type="button"
+				class="btn btn-sm preset-tonal-surface"
+				onclick={handlePrintPriceSheet}
+				disabled={appState.projects.length === 0}
+			>
+				<Printer size={16} />
+				<span>Price Sheet</span>
 			</button>
-		{/if}
+			{#if appState.canEdit}
+				<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
+					<SquarePlus size={16} />
+					<span>New Project</span>
+				</button>
+			{/if}
+		</div>
 	</div>
 
 	{#if showForm}

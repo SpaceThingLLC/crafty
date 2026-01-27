@@ -24,3 +24,79 @@ input[type='number']::-webkit-inner-spin-button {
 input[type='number'] {
 	-moz-appearance: textfield;
 }
+
+/* Print-specific styles */
+@media print {
+	/* Hide non-essential UI elements */
+	.no-print {
+		display: none !important;
+	}
+
+	/* Show print-only elements */
+	.print-only {
+		display: block !important;
+	}
+
+	/* Reset backgrounds for printing */
+	body {
+		background: white !important;
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+
+	/* Ensure proper page breaks */
+	.print-page-break {
+		page-break-before: always;
+	}
+
+	.print-avoid-break {
+		page-break-inside: avoid;
+	}
+
+	/* Typography adjustments */
+	body {
+		font-size: 12pt;
+		line-height: 1.4;
+		color: black !important;
+	}
+
+	/* Table styling for materials list */
+	.print-table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	.print-table th,
+	.print-table td {
+		border-bottom: 1px solid #ccc;
+		padding: 0.5rem;
+		text-align: left;
+	}
+
+	.print-table th {
+		font-weight: bold;
+		border-bottom: 2px solid #333;
+	}
+
+	/* Right-align currency values */
+	.print-currency {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* Emphasize totals */
+	.print-total {
+		font-size: 14pt;
+		font-weight: bold;
+		margin-top: 1rem;
+		padding-top: 0.5rem;
+		border-top: 2px solid #333;
+	}
+
+	/* Hide Skeleton UI chrome */
+	.card {
+		box-shadow: none !important;
+		border: none !important;
+		background: transparent !important;
+	}
+}
