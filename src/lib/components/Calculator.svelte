@@ -320,7 +320,7 @@
 				</div>
 			{:else if availableMaterials.length > 0 && !appState.canEdit}
 				<p class="text-surface-600-400 text-sm mb-4 p-3 bg-surface-100-900 rounded-lg">
-					Enter passphrase to add materials to this project.
+					Sign in to add materials to this project.
 				</p>
 			{:else if appState.materials.length === 0}
 				<p class="text-surface-600-400 text-sm mb-4 p-3 bg-surface-100-900 rounded-lg">
@@ -351,7 +351,7 @@
 											onclick={() => decrementQuantity(pm.materialId, pm.quantity)}
 											disabled={pm.quantity <= 0.1 || !appState.canEdit}
 											aria-label="Decrease quantity"
-											title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
+											title={!appState.canEdit ? 'Sign in to edit' : undefined}
 										>
 											<Minus size={14} />
 										</button>
@@ -363,7 +363,7 @@
 											min="0.1"
 											step="0.1"
 											disabled={!appState.canEdit}
-											title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
+											title={!appState.canEdit ? 'Sign in to edit' : undefined}
 										/>
 										<button
 											type="button"
@@ -371,7 +371,7 @@
 											onclick={() => incrementQuantity(pm.materialId, pm.quantity)}
 											aria-label="Increase quantity"
 											disabled={!appState.canEdit}
-											title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
+											title={!appState.canEdit ? 'Sign in to edit' : undefined}
 										>
 											<Plus size={14} />
 										</button>
@@ -386,7 +386,7 @@
 										onclick={() => handleRemoveMaterial(pm.materialId)}
 										aria-label="Remove material"
 										disabled={!appState.canEdit}
-										title={!appState.canEdit ? 'Enter passphrase to remove' : undefined}
+										title={!appState.canEdit ? 'Sign in to remove' : undefined}
 									>
 										<X size={14} />
 									</button>
@@ -409,7 +409,7 @@
 						min="0"
 						step="1"
 						disabled={!appState.canEdit}
-						title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
+						title={!appState.canEdit ? 'Sign in to edit' : undefined}
 					/>
 				</label>
 			</div>

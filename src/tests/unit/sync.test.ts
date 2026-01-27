@@ -17,7 +17,7 @@ vi.mock('$lib/db', () => ({
 	resolveWorkspaceToken: vi.fn(),
 	rotateShareToken: vi.fn(),
 	syncAllData: vi.fn(),
-	verifyPassphrase: vi.fn(),
+	listUserWorkspaces: vi.fn(),
 	isSupabaseConfigured: vi.fn(() => true)
 }));
 
@@ -42,7 +42,6 @@ const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 const validWorkspace: WorkspaceInfo = {
 	id: validUUID,
 	shareToken: 'pmc_test_token',
-	passphrase: 'test-passphrase',
 	isOwner: true,
 	createdAt: Date.now()
 };
@@ -61,14 +60,12 @@ describe('sync', () => {
 		});
 
 		it('should load workspace from localStorage', () => {
-			const storedWorkspace = { ...validWorkspace, passphrase: null };
-			localStorage.setItem('pricemycraft-workspace', JSON.stringify(storedWorkspace));
+			localStorage.setItem('pricemycraft-workspace', JSON.stringify(validWorkspace));
 
 			const result = loadWorkspaceInfo();
 
 			expect(result?.id).toBe(validWorkspace.id);
 			expect(result?.shareToken).toBe(validWorkspace.shareToken);
-			expect(result?.passphrase).toBeNull();
 		});
 
 		it('should migrate from legacy storage key', () => {
@@ -88,6 +85,16 @@ describe('sync', () => {
 
 			expect(result).toBeNull();
 		});
+
+		it('should strip legacy passphrase field from stored data', () => {
+			const legacyWorkspace = { ...validWorkspace, passphrase: 'old-pass' };
+			localStorage.setItem('pricemycraft-workspace', JSON.stringify(legacyWorkspace));
+
+			const result = loadWorkspaceInfo();
+
+			expect(result?.id).toBe(validWorkspace.id);
+			expect((result as unknown as Record<string, unknown>)?.passphrase).toBeUndefined();
+		});
 	});
 
 	describe('saveWorkspaceInfo', () => {
@@ -95,17 +102,16 @@ describe('sync', () => {
 			saveWorkspaceInfo(validWorkspace);
 
 			const stored = JSON.parse(localStorage.getItem('pricemycraft-workspace')!);
-			expect(stored.passphrase).toBeUndefined();
 			expect(stored.shareToken).toBe(validWorkspace.shareToken);
 		});
 
 		it('should overwrite existing workspace', () => {
 			saveWorkspaceInfo(validWorkspace);
-			const newWorkspace = { ...validWorkspace, passphrase: 'new-passphrase' };
+			const newWorkspace = { ...validWorkspace, shareToken: 'pmc_new_token' };
 			saveWorkspaceInfo(newWorkspace);
 
 			const stored = JSON.parse(localStorage.getItem('pricemycraft-workspace')!);
-			expect(stored.passphrase).toBeUndefined();
+			expect(stored.shareToken).toBe('pmc_new_token');
 		});
 	});
 
@@ -218,26 +224,17 @@ describe('sync', () => {
 			expect(canEdit(null)).toBe(false);
 		});
 
-		it('should return false for workspace without passphrase', () => {
-			const workspace: WorkspaceInfo = {
-				...validWorkspace,
-				passphrase: null
-			};
-
-			expect(canEdit(workspace)).toBe(false);
-		});
-
-		it('should return true for workspace with passphrase', () => {
-			expect(canEdit(validWorkspace)).toBe(true);
-		});
-
-		it('should return true for non-owner with passphrase', () => {
+		it('should return false for workspace where isOwner is false', () => {
 			const workspace: WorkspaceInfo = {
 				...validWorkspace,
 				isOwner: false
 			};
 
-			expect(canEdit(workspace)).toBe(true);
+			expect(canEdit(workspace)).toBe(false);
+		});
+
+		it('should return true for workspace where isOwner is true', () => {
+			expect(canEdit(validWorkspace)).toBe(true);
 		});
 	});
 
@@ -372,10 +369,10 @@ describe('sync', () => {
 				expect(result).toBe(false);
 			});
 
-			it('should return false if workspace has no passphrase (view-only)', async () => {
+			it('should return false if workspace is not editable (view-only)', async () => {
 				syncManager.setWorkspace({
 					...validWorkspace,
-					passphrase: null
+					isOwner: false
 				});
 
 				const result = await syncManager.sync({

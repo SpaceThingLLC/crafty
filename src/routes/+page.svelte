@@ -10,7 +10,7 @@
 	import SetupWizard from '$lib/components/SetupWizard.svelte';
 	import SyncStatus from '$lib/components/SyncStatus.svelte';
 	import WorkspaceSetup from '$lib/components/WorkspaceSetup.svelte';
-	import PassphraseModal from '$lib/components/PassphraseModal.svelte';
+	import { authState } from '$lib/auth.svelte';
 	import { appState } from '$lib/state.svelte';
 	import type { WorkspaceInfo } from '$lib/types';
 
@@ -30,15 +30,15 @@
 
 	let activeTab = $state<TabKey>('calculator');
 	let workspaceSetupOpen = $state(false);
-	let passphraseModalOpen = $state(false);
 	let CalculatorView = $state<CalculatorComponentType | null>(null);
 	let MaterialLibraryView = $state<MaterialLibraryComponentType | null>(null);
 	let ProjectListView = $state<ProjectListComponentType | null>(null);
 	let SettingsPanelView = $state<SettingsPanelComponentType | null>(null);
 	let hasPrefetchedTabs = $state(false);
 
-	// Initialize sync on mount
+	// Initialize auth and sync on mount
 	onMount(async () => {
+		await authState.initialize();
 		await appState.initializeSync();
 		void loadTab(activeTab);
 	});
@@ -51,12 +51,6 @@
 		appState.setWorkspace(workspace);
 		// Sync initial data to the new workspace
 		appState.sync();
-	}
-
-	function handlePassphraseVerified(passphrase: string, rememberPassphrase: boolean) {
-		appState.updatePassphrase(passphrase, rememberPassphrase);
-		// Refresh data from remote
-		appState.pull();
 	}
 
 	// Initialize from persisted state, validating project still exists.
@@ -189,7 +183,6 @@
 					workspace={appState.workspace}
 					lastSyncedAt={appState.lastSyncedAt}
 					onsync={() => appState.sync()}
-					onunlock={() => (passphraseModalOpen = true)}
 					onsettings={switchToSettings}
 					onrotatelink={() => appState.rotateShareLink()}
 				/>
@@ -286,11 +279,3 @@
 	oncreate={handleWorkspaceCreated}
 />
 
-<!-- Passphrase Modal -->
-{#if appState.workspace}
-	<PassphraseModal
-		bind:open={passphraseModalOpen}
-		workspaceId={appState.workspace.id}
-		onverified={handlePassphraseVerified}
-	/>
-{/if}

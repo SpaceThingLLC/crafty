@@ -3,6 +3,8 @@
 	import Download from '@lucide/svelte/icons/download';
 	import Upload from '@lucide/svelte/icons/upload';
 	import { appState } from '$lib/state.svelte';
+	import { authState } from '$lib/auth.svelte';
+	import AuthPanel from './AuthPanel.svelte';
 	import {
 		clearLocalData,
 		downloadState,
@@ -131,6 +133,30 @@
 </script>
 
 <div class="space-y-6 py-4">
+	<!-- Account -->
+	<section>
+		<h3 class="text-sm font-medium text-surface-600-400 mb-3">Account</h3>
+		<div class="card preset-tonal-surface p-4">
+			{#if authState.isAuthenticated}
+				<div class="flex items-center justify-between gap-3">
+					<div class="text-sm">
+						<span class="text-surface-600-400">Signed in as</span>
+						<span class="font-medium">{authState.email}</span>
+					</div>
+					<button
+						type="button"
+						class="btn btn-sm preset-tonal-surface"
+						onclick={() => authState.signOut()}
+					>
+						Sign Out
+					</button>
+				</div>
+			{:else}
+				<AuthPanel message="Sign in to enable cloud sync and edit from any device." />
+			{/if}
+		</div>
+	</section>
+
 	<!-- Pricing Settings -->
 	<section>
 		<h3 class="text-sm font-medium text-surface-600-400 mb-3">Pricing</h3>
@@ -142,7 +168,7 @@
 					value={appState.settings.currencyCode || 'USD'}
 					onchange={handleCurrencyChange}
 					disabled={!appState.canEdit}
-					title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
+					title={!appState.canEdit ? 'Sign in to edit settings' : undefined}
 				>
 					{#each SUPPORTED_CURRENCIES as currency}
 						<option value={currency.code}>
@@ -167,7 +193,7 @@
 						step="0.01"
 						placeholder="15.00"
 						disabled={!appState.canEdit}
-						title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
+						title={!appState.canEdit ? 'Sign in to edit settings' : undefined}
 					/>
 				</div>
 			</label>
@@ -179,7 +205,7 @@
 					value={appState.settings.laborRateUnit}
 					onchange={handleLaborRateUnitChange}
 					disabled={!appState.canEdit}
-					title={!appState.canEdit ? 'Enter passphrase to edit settings' : undefined}
+					title={!appState.canEdit ? 'Sign in to edit settings' : undefined}
 				>
 					{#each laborRateUnits as unit}
 						<option value={unit}>{getLaborRateUnitLabel(unit)}</option>
@@ -202,7 +228,7 @@
 				class="btn btn-sm preset-tonal-surface"
 				onclick={handleImportClick}
 				disabled={!appState.canEdit}
-				title={!appState.canEdit ? 'Enter passphrase to import data' : undefined}
+				title={!appState.canEdit ? 'Sign in to import data' : undefined}
 			>
 				<Upload size={16} />
 				<span>Import My Data</span>

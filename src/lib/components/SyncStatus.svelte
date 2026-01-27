@@ -7,8 +7,8 @@
 	import Clock from '@lucide/svelte/icons/clock';
 	import Share2 from '@lucide/svelte/icons/share-2';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-	import KeyRound from '@lucide/svelte/icons/key-round';
 	import Eye from '@lucide/svelte/icons/eye';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Settings from '@lucide/svelte/icons/settings';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import { toaster } from '$lib/toaster.svelte';
@@ -20,12 +20,11 @@
 		workspace: WorkspaceInfo | null;
 		lastSyncedAt: number | null;
 		onsync?: () => void;
-		onunlock?: () => void;
 		onsettings?: () => void;
 		onrotatelink?: () => Promise<string | null>;
 	}
 
-	let { status, workspace, lastSyncedAt, onsync, onunlock, onsettings, onrotatelink }: Props =
+	let { status, workspace, lastSyncedAt, onsync, onsettings, onrotatelink }: Props =
 		$props();
 
 	let menuOpen = $state(false);
@@ -82,11 +81,6 @@
 
 	function handleSync() {
 		onsync?.();
-		menuOpen = false;
-	}
-
-	function handleUnlock() {
-		onunlock?.();
 		menuOpen = false;
 	}
 
@@ -158,7 +152,7 @@
 					<!-- Access Level -->
 					<div class="flex items-center gap-2 pb-2 border-b border-surface-300-700">
 						{#if isEditable}
-							<KeyRound size={14} class="text-success-500" />
+							<ShieldCheck size={14} class="text-success-500" />
 							<span class="font-medium">Edit Access</span>
 						{:else}
 							<Eye size={14} class="text-surface-500" />
@@ -188,16 +182,6 @@
 							</button>
 						{/if}
 
-						{#if !isEditable && onunlock}
-							<button
-								type="button"
-								class="btn btn-sm preset-tonal-surface w-full"
-								onclick={handleUnlock}
-							>
-								<KeyRound size={14} />
-								<span>Unlock to Edit</span>
-							</button>
-						{/if}
 					</div>
 
 					<!-- Share Link -->

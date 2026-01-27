@@ -9,21 +9,21 @@ export interface Database {
 			workspaces: {
 				Row: {
 					id: string;
-					passphrase_hash: string | null;
+					user_id: string | null;
 					short_name: string;
 					created_at: string;
 					updated_at: string;
 				};
 				Insert: {
 					id?: string;
-					passphrase_hash?: string | null;
+					user_id?: string | null;
 					short_name?: string;
 					created_at?: string;
 					updated_at?: string;
 				};
 				Update: {
 					id?: string;
-					passphrase_hash?: string | null;
+					user_id?: string | null;
 					short_name?: string;
 					created_at?: string;
 					updated_at?: string;
@@ -151,12 +151,17 @@ export interface Database {
 		Views: Record<string, never>;
 		Functions: {
 			create_workspace: {
-				Args: { p_passphrase?: string | null };
+				Args: Record<string, never>;
 				Returns: string;
 			};
-			verify_passphrase: {
-				Args: { p_workspace_id: string; p_passphrase: string };
-				Returns: boolean;
+			list_user_workspaces: {
+				Args: Record<string, never>;
+				Returns: Array<{
+					id: string;
+					short_name: string | null;
+					created_at: string;
+					updated_at: string;
+				}>;
 			};
 		};
 		Enums: Record<string, never>;

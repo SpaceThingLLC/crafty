@@ -5,7 +5,6 @@ import { AppStateSchema, type ValidationResult, formatValidationErrors } from '.
 const STORAGE_KEY = 'pricemycraft-app-state';
 const LEGACY_STORAGE_KEY = 'crafty-app-state';
 const WORKSPACE_KEY = 'pricemycraft-workspace';
-const WORKSPACE_SECRET_KEY = 'pricemycraft-workspace-secret';
 const SYNC_META_KEY = 'pricemycraft-sync-meta';
 const PROJECT_HISTORY_KEY = 'pricemycraft-project-history';
 const PROJECT_HISTORY_LIMIT = 10;
@@ -13,6 +12,9 @@ const PROJECT_HISTORY_LIMIT = 10;
 // Legacy keys for migration
 const LEGACY_WORKSPACE_KEY = 'crafty-workspace';
 const LEGACY_SYNC_META_KEY = 'crafty-sync-meta';
+
+// Legacy keys to clean up (passphrase storage no longer used)
+const LEGACY_WORKSPACE_SECRET_KEY = 'pricemycraft-workspace-secret';
 
 /**
  * Check if we're in a browser environment
@@ -231,23 +233,16 @@ export function loadWorkspace(): WorkspaceInfo | null {
 		if (!stored) return null;
 
 		const parsed = JSON.parse(stored) as WorkspaceInfo & { passphrase?: string | null };
-		const legacyPassphrase = typeof parsed.passphrase === 'string' ? parsed.passphrase : null;
-		if (legacyPassphrase) {
-			// Migrate legacy stored passphrase to session storage by default
-			try {
-				sessionStorage.setItem(WORKSPACE_SECRET_KEY, legacyPassphrase);
-			} catch {
-				// Ignore storage errors
-			}
-			delete (parsed as { passphrase?: string | null }).passphrase;
-			localStorage.setItem(WORKSPACE_KEY, JSON.stringify(parsed));
-		}
 
-		const passphrase = loadWorkspaceSecret();
+		// Clean up legacy passphrase fields from stored data
+		delete (parsed as { passphrase?: string | null }).passphrase;
+
+		// Clean up legacy passphrase secret storage
+		cleanupLegacySecrets();
+
 		return {
 			...parsed,
-			shareToken: parsed.shareToken ?? null,
-			passphrase
+			shareToken: parsed.shareToken ?? null
 		};
 	} catch {
 		return null;
@@ -255,58 +250,15 @@ export function loadWorkspace(): WorkspaceInfo | null {
 }
 
 /**
- * Load workspace passphrase from session/local storage
+ * Remove legacy passphrase secrets from session/local storage
  */
-export function loadWorkspaceSecret(): string | null {
-	if (!isBrowser()) {
-		return null;
-	}
-
+function cleanupLegacySecrets(): void {
 	try {
-		const sessionValue = sessionStorage.getItem(WORKSPACE_SECRET_KEY);
-		if (sessionValue) return sessionValue;
-		const localValue = localStorage.getItem(WORKSPACE_SECRET_KEY);
-		return localValue ?? null;
+		sessionStorage.removeItem(LEGACY_WORKSPACE_SECRET_KEY);
+		localStorage.removeItem(LEGACY_WORKSPACE_SECRET_KEY);
 	} catch {
-		return null;
+		// Ignore storage errors
 	}
-}
-
-/**
- * Save workspace passphrase to session or local storage
- */
-export function saveWorkspaceSecret(
-	passphrase: string | null,
-	mode: 'session' | 'local' | 'none' = 'session'
-): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	try {
-		sessionStorage.removeItem(WORKSPACE_SECRET_KEY);
-		localStorage.removeItem(WORKSPACE_SECRET_KEY);
-		if (!passphrase || mode === 'none') return;
-		if (mode === 'local') {
-			localStorage.setItem(WORKSPACE_SECRET_KEY, passphrase);
-		} else {
-			sessionStorage.setItem(WORKSPACE_SECRET_KEY, passphrase);
-		}
-	} catch (error) {
-		console.error('Failed to save workspace secret:', error);
-	}
-}
-
-/**
- * Clear workspace passphrase from storage
- */
-export function clearWorkspaceSecret(): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	sessionStorage.removeItem(WORKSPACE_SECRET_KEY);
-	localStorage.removeItem(WORKSPACE_SECRET_KEY);
 }
 
 /**
@@ -318,8 +270,7 @@ export function saveWorkspace(workspace: WorkspaceInfo): void {
 	}
 
 	try {
-		const { passphrase, ...safeWorkspace } = workspace;
-		localStorage.setItem(WORKSPACE_KEY, JSON.stringify(safeWorkspace));
+		localStorage.setItem(WORKSPACE_KEY, JSON.stringify(workspace));
 	} catch (error) {
 		console.error('Failed to save workspace:', error);
 	}
@@ -335,7 +286,7 @@ export function clearWorkspace(): void {
 
 	localStorage.removeItem(WORKSPACE_KEY);
 	localStorage.removeItem(LEGACY_WORKSPACE_KEY);
-	clearWorkspaceSecret();
+	cleanupLegacySecrets();
 }
 
 /**

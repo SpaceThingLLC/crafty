@@ -16,9 +16,7 @@ import {
 	recordProjectVisit,
 	clearProjectHistory,
 	clearLocalData,
-	loadExtendedState,
-	saveWorkspaceSecret,
-	loadWorkspaceSecret
+	loadExtendedState
 } from '$lib/storage';
 import { DEFAULT_STATE, DEFAULT_SETTINGS } from '$lib/types';
 import type { AppState, WorkspaceInfo } from '$lib/types';
@@ -57,7 +55,6 @@ const validAppState: AppState = {
 const validWorkspace: WorkspaceInfo = {
 	id: validUUID,
 	shareToken: 'pmc_test_token',
-	passphrase: 'test-passphrase',
 	isOwner: true,
 	createdAt: Date.now()
 };
@@ -261,25 +258,24 @@ describe('storage', () => {
 
 			expect(result?.id).toBe(validWorkspace.id);
 			expect(result?.shareToken).toBe(validWorkspace.shareToken);
-			expect(result?.passphrase).toBeNull();
+			expect(result?.isOwner).toBe(true);
 		});
 
-		it('should hydrate passphrase from workspace secret', () => {
-			saveWorkspace(validWorkspace);
-			saveWorkspaceSecret(validWorkspace.passphrase, 'session');
+		it('should strip legacy passphrase field from stored data', () => {
+			const legacyWorkspace = { ...validWorkspace, passphrase: 'old-pass' };
+			saveWorkspace(legacyWorkspace as unknown as WorkspaceInfo);
 
 			const result = loadWorkspace();
 
-			expect(result?.passphrase).toBe(validWorkspace.passphrase);
+			expect(result?.id).toBe(validWorkspace.id);
+			expect((result as unknown as Record<string, unknown>)?.passphrase).toBeUndefined();
 		});
 
 		it('should clear workspace', () => {
 			saveWorkspace(validWorkspace);
-			saveWorkspaceSecret(validWorkspace.passphrase, 'session');
 			clearWorkspace();
 
 			expect(loadWorkspace()).toBeNull();
-			expect(loadWorkspaceSecret()).toBeNull();
 		});
 
 		it('should migrate from legacy workspace key', () => {
@@ -287,7 +283,7 @@ describe('storage', () => {
 
 			const result = loadWorkspace();
 
-			expect(result).toEqual(validWorkspace);
+			expect(result?.id).toBe(validWorkspace.id);
 			expect(localStorage.getItem('crafty-workspace')).toBeNull();
 			expect(localStorage.getItem('pricemycraft-workspace')).not.toBeNull();
 		});
@@ -466,7 +462,9 @@ describe('storage', () => {
 
 			clearLocalData();
 
-			expect(loadWorkspace()).toEqual({ ...validWorkspace, passphrase: null });
+			const loaded = loadWorkspace();
+			expect(loaded?.id).toBe(validWorkspace.id);
+			expect(loaded?.isOwner).toBe(validWorkspace.isOwner);
 		});
 	});
 
@@ -480,7 +478,7 @@ describe('storage', () => {
 
 			expect(result.materials).toEqual(validAppState.materials);
 			expect(result.projects).toEqual(validAppState.projects);
-			expect(result.workspace).toEqual({ ...validWorkspace, passphrase: null });
+			expect(result.workspace?.id).toBe(validWorkspace.id);
 			expect(result.lastSyncedAt).toBe(12345);
 			expect(result.syncStatus).toBe('offline');
 			expect(result.pendingChanges).toEqual([]);

@@ -29,15 +29,12 @@
 			</p>
 			<p>
 				<strong>Workspace metadata.</strong> If you use cloud sync, the app stores a workspace
-				ID, a share token, and optional passphrase preferences on your device. Passphrases are
-				stored in sessionStorage by default and only saved to localStorage if you opt in to
-				"remember" on that device.
+				ID and a share token on your device.
 			</p>
 			<p>
 				<strong>Cloud sync data (optional).</strong> When cloud sync is configured and you
-				enable it, your workspace data (materials, projects, settings, and timestamps) is
-				stored in a managed database. Passphrases are hashed before storage; plaintext
-				passphrases are not stored in the database.
+				sign in, your workspace data (materials, projects, settings, and timestamps) is
+				stored in a managed database.
 			</p>
 			<p>
 				<strong>Basic request logs.</strong> If you use a hosted instance, the hosting provider
@@ -103,8 +100,9 @@
 	<section class="space-y-3">
 		<h2 class="text-lg font-semibold">Security</h2>
 		<p class="text-sm text-surface-700-200">
-			We use passphrase hashing and restricted database access for cloud sync. No system is
-			100% secure, so avoid storing sensitive personal information in your workspace data.
+			We use authenticated access and restricted database permissions for cloud sync. No
+			system is 100% secure, so avoid storing sensitive personal information in your workspace
+			data.
 		</p>
 	</section>
 

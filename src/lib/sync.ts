@@ -9,16 +9,10 @@ import {
 	resolveWorkspaceToken as resolveWorkspaceTokenRpc,
 	rotateShareToken as rotateShareTokenRpc,
 	syncAllData,
-	verifyPassphrase,
 	isSupabaseConfigured
 } from './db';
 import { isOnline } from './supabase';
-import {
-	recordProjectVisit,
-	loadWorkspaceSecret,
-	saveWorkspaceSecret,
-	clearWorkspaceSecret
-} from './storage';
+import { recordProjectVisit } from './storage';
 import type {
 	AppState,
 	PendingChange,
@@ -56,18 +50,13 @@ export function loadWorkspaceInfo(): WorkspaceInfo | null {
 
 		if (!stored) return null;
 		const parsed = JSON.parse(stored) as WorkspaceInfo & { passphrase?: string | null };
-		const legacyPassphrase = typeof parsed.passphrase === 'string' ? parsed.passphrase : null;
-		if (legacyPassphrase) {
-			saveWorkspaceSecret(legacyPassphrase, 'session');
-			delete (parsed as { passphrase?: string | null }).passphrase;
-			localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(parsed));
-		}
 
-		const passphrase = loadWorkspaceSecret();
+		// Clean up legacy passphrase field if present
+		delete (parsed as { passphrase?: string | null }).passphrase;
+
 		return {
 			...parsed,
-			shareToken: parsed.shareToken ?? null,
-			passphrase
+			shareToken: parsed.shareToken ?? null
 		};
 	} catch {
 		return null;
@@ -79,8 +68,7 @@ export function loadWorkspaceInfo(): WorkspaceInfo | null {
  */
 export function saveWorkspaceInfo(workspace: WorkspaceInfo): void {
 	if (typeof localStorage === 'undefined') return;
-	const { passphrase, ...safeWorkspace } = workspace;
-	localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(safeWorkspace));
+	localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspace));
 }
 
 /**
@@ -89,7 +77,6 @@ export function saveWorkspaceInfo(workspace: WorkspaceInfo): void {
 export function clearWorkspaceInfo(): void {
 	if (typeof localStorage === 'undefined') return;
 	localStorage.removeItem(WORKSPACE_STORAGE_KEY);
-	clearWorkspaceSecret();
 }
 
 /**
@@ -167,31 +154,26 @@ function recordWorkspaceVisit(workspace: WorkspaceInfo): void {
 }
 
 /**
- * Create a new workspace
+ * Create a new workspace (requires authenticated Supabase session)
  */
-export async function createNewWorkspace(
-	passphrase: string,
-	options: { rememberPassphrase?: boolean } = {}
-): Promise<WorkspaceInfo | null> {
+export async function createNewWorkspace(): Promise<WorkspaceInfo | null> {
 	if (!isSupabaseConfigured()) {
 		console.error('Supabase is not configured');
 		return null;
 	}
 
-	const created = await createWorkspace(passphrase);
+	const created = await createWorkspace();
 	if (!created) return null;
 
 	const workspace: WorkspaceInfo = {
 		id: created.id,
 		shortName: created.shortName,
 		shareToken: created.shareToken,
-		passphrase,
 		isOwner: true,
 		createdAt: Date.now()
 	};
 
 	saveWorkspaceInfo(workspace);
-	saveWorkspaceSecret(passphrase, options.rememberPassphrase ? 'local' : 'session');
 	setWorkspaceInUrl(workspace);
 	recordWorkspaceVisit(workspace);
 
@@ -199,24 +181,7 @@ export async function createNewWorkspace(
 }
 
 /**
- * Join an existing workspace with passphrase
- */
-export async function joinWorkspace(
-	workspaceId: string,
-	passphrase: string
-): Promise<{ success: boolean; isValid: boolean }> {
-	if (!isSupabaseConfigured()) {
-		return { success: false, isValid: false };
-	}
-
-	// Verify passphrase
-	const isValid = await verifyPassphrase(workspaceId, passphrase);
-
-	return { success: true, isValid };
-}
-
-/**
- * Load workspace as view-only (no passphrase)
+ * Load workspace as view-only (no auth needed)
  */
 export async function viewWorkspace(
 	workspaceToken: string,
@@ -235,7 +200,6 @@ export async function viewWorkspace(
 		id: info.id,
 		shortName: info.shortName ?? shortNameHint ?? null,
 		shareToken: workspaceToken,
-		passphrase: null,
 		isOwner: false,
 		createdAt: Date.now()
 	};
@@ -254,10 +218,10 @@ async function resolveWorkspaceTokenInfo(
 }
 
 /**
- * Check if user can edit (has valid passphrase)
+ * Check if user can edit (is workspace owner via auth)
  */
 export function canEdit(workspace: WorkspaceInfo | null): boolean {
-	return workspace !== null && workspace.passphrase !== null;
+	return workspace !== null && workspace.isOwner === true;
 }
 
 /**
@@ -287,14 +251,13 @@ export async function fetchAndMergeRemoteData(
 }
 
 /**
- * Push local changes to remote
+ * Push local changes to remote (auth session provides ownership proof)
  */
 export async function pushToRemote(
 	workspaceId: string,
-	passphrase: string,
 	state: AppState
 ): Promise<boolean> {
-	return await syncAllData(workspaceId, passphrase, state);
+	return await syncAllData(workspaceId, state);
 }
 
 /**
@@ -306,11 +269,11 @@ export async function rotateWorkspaceShareToken(
 	if (!isSupabaseConfigured()) {
 		return null;
 	}
-	if (!canEdit(workspace) || !workspace.passphrase) {
+	if (!canEdit(workspace)) {
 		return null;
 	}
 
-	const newToken = await rotateShareTokenRpc(workspace.id, workspace.passphrase);
+	const newToken = await rotateShareTokenRpc(workspace.id);
 	if (!newToken) {
 		return null;
 	}
@@ -375,16 +338,11 @@ export class SyncManager {
 		const urlShortName = getWorkspaceShortNameFromUrl();
 		let workspace = loadWorkspaceInfo();
 
-		// If URL has a different workspace, switch to it (view-only)
+		// If URL has a different workspace, switch to it (view-only unless same workspace)
 		if (urlWorkspaceToken) {
 			const resolved = await resolveWorkspaceTokenInfo(urlWorkspaceToken);
 			if (resolved) {
-				// Keep passphrase if same workspace, otherwise clear
 				const isSameWorkspace = workspace?.id === resolved.id;
-				const passphrase = isSameWorkspace ? workspace?.passphrase ?? null : null;
-				if (!isSameWorkspace) {
-					clearWorkspaceSecret();
-				}
 				const shortName =
 					resolved.shortName ??
 					urlShortName ??
@@ -393,7 +351,6 @@ export class SyncManager {
 					id: resolved.id,
 					shortName,
 					shareToken: urlWorkspaceToken,
-					passphrase,
 					isOwner: isSameWorkspace ? Boolean(workspace?.isOwner) : false,
 					createdAt: Date.now()
 				};
@@ -482,7 +439,7 @@ export class SyncManager {
 		if (this._syncInProgress) return false;
 		if (!this._workspace) return false;
 		if (!canEdit(this._workspace)) {
-			// Can't sync without passphrase
+			// Can't sync without ownership (auth session)
 			return false;
 		}
 
@@ -496,12 +453,7 @@ export class SyncManager {
 				return false;
 			}
 
-			const passphrase = this._workspace.passphrase;
-			if (!passphrase) {
-				this.setStatus('error');
-				return false;
-			}
-			const success = await pushToRemote(this._workspace.id, passphrase, state);
+			const success = await pushToRemote(this._workspace.id, state);
 
 			if (success) {
 				this._lastSyncedAt = Date.now();

@@ -61,8 +61,7 @@ export interface WorkspaceInfo {
 	id: string;
 	shortName?: string | null; // Human-friendly vanity label (not an access token)
 	shareToken: string | null; // High-entropy share token for view access (treat as secret)
-	passphrase: string | null; // Stored locally for convenience
-	isOwner: boolean; // True if user created this workspace
+	isOwner: boolean; // True if user owns this workspace (authenticated via auth.uid())
 	createdAt: number;
 }
 
