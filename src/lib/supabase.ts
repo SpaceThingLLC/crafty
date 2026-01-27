@@ -26,8 +26,9 @@ export function getSupabase(): SupabaseClient | null {
 	if (!supabaseClient) {
 		supabaseClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
 			auth: {
-				persistSession: false, // We're using passphrase auth, not Supabase auth
-				autoRefreshToken: false
+				persistSession: true,
+				autoRefreshToken: true,
+				flowType: 'pkce' // Required for magic link auth on static sites
 			}
 		});
 	}

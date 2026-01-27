@@ -3,8 +3,7 @@ import {
 	saveState,
 	loadWorkspace,
 	saveWorkspace,
-	saveSyncMeta,
-	saveWorkspaceSecret
+	saveSyncMeta
 } from './storage';
 import type { AppState, Material, Project, Settings, SyncStatus, WorkspaceInfo } from './types';
 import { DEFAULT_SETTINGS } from './types';
@@ -98,7 +97,7 @@ function createAppState() {
 		get canEdit() {
 			// Local-only mode (no workspace) = full edit access
 			if (!workspace) return true;
-			// With workspace, need passphrase
+			// With workspace, need to be owner (authenticated)
 			return canEdit(workspace);
 		},
 
@@ -327,15 +326,6 @@ function createAppState() {
 				lastSyncedAt = Date.now();
 				saveSyncMeta({ lastSyncedAt });
 				syncStatus = 'synced';
-			}
-		},
-
-		updatePassphrase(passphrase: string, rememberPassphrase: boolean = false) {
-			if (workspace) {
-				workspace = { ...workspace, passphrase };
-				saveWorkspace(workspace);
-				saveWorkspaceSecret(passphrase, rememberPassphrase ? 'local' : 'session');
-				syncManager.setWorkspace(workspace);
 			}
 		},
 

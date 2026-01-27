@@ -137,7 +137,7 @@
 							onclick={(e) => handleEdit(project, e)}
 							aria-label="Edit project"
 							disabled={!appState.canEdit}
-							title={!appState.canEdit ? 'Enter passphrase to edit' : undefined}
+							title={!appState.canEdit ? 'Sign in to edit' : undefined}
 						>
 							<Pencil size={14} />
 						</button>
@@ -147,7 +147,7 @@
 							onclick={(e) => handleDelete(project, e)}
 							aria-label="Delete project"
 							disabled={!appState.canEdit}
-							title={!appState.canEdit ? 'Enter passphrase to delete' : undefined}
+							title={!appState.canEdit ? 'Sign in to delete' : undefined}
 						>
 							<Trash2 size={14} />
 						</button>

@@ -31,7 +31,7 @@
 		<ul class="list-disc pl-5 text-sm text-surface-700-200 space-y-2">
 			<li>You own the data you enter into the app.</li>
 			<li>Do not upload sensitive personal information. Share links are bearer tokens.</li>
-			<li>You are responsible for keeping your share links and passphrase secure.</li>
+			<li>You are responsible for keeping your share links and account secure.</li>
 			<li>Export your data if you need a backup. We do not guarantee data availability.</li>
 		</ul>
 	</section>

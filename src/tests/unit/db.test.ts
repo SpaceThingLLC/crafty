@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	createWorkspace,
-	verifyPassphrase,
 	resolveWorkspaceToken,
 	fetchWorkspaceData,
 	syncAllData,
 	rotateShareToken,
+	listUserWorkspaces,
 	isSupabaseConfigured
 } from '$lib/db';
 import type { AppState, Settings } from '$lib/types';
@@ -65,7 +65,7 @@ describe('db', () => {
 	});
 
 	describe('createWorkspace', () => {
-		it('should call rpc with create_workspace', async () => {
+		it('should call rpc with create_workspace (no params)', async () => {
 			const mockSupabase = {
 				rpc: vi.fn().mockResolvedValue({
 					data: { id: validUUID, short_name: 'test-short', share_token: 'pmc_test' },
@@ -74,11 +74,9 @@ describe('db', () => {
 			};
 			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
 
-			const result = await createWorkspace('test-passphrase');
+			const result = await createWorkspace();
 
-			expect(mockSupabase.rpc).toHaveBeenCalledWith('create_workspace', {
-				p_passphrase: 'test-passphrase'
-			});
+			expect(mockSupabase.rpc).toHaveBeenCalledWith('create_workspace');
 			expect(result).toEqual({ id: validUUID, shortName: 'test-short', shareToken: 'pmc_test' });
 		});
 
@@ -88,7 +86,7 @@ describe('db', () => {
 			};
 			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
 
-			const result = await createWorkspace('test-passphrase');
+			const result = await createWorkspace();
 
 			expect(result).toBeNull();
 		});
@@ -96,37 +94,9 @@ describe('db', () => {
 		it('should return null when supabase is not available', async () => {
 			vi.mocked(getSupabase).mockReturnValueOnce(null);
 
-			const result = await createWorkspace('test-passphrase');
+			const result = await createWorkspace();
 
 			expect(result).toBeNull();
-		});
-	});
-
-	describe('verifyPassphrase', () => {
-		it('should call rpc with verify_passphrase', async () => {
-			const mockSupabase = {
-				rpc: vi.fn().mockResolvedValue({ data: true, error: null })
-			};
-			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
-
-			const result = await verifyPassphrase(validUUID, 'test-passphrase');
-
-			expect(mockSupabase.rpc).toHaveBeenCalledWith('verify_passphrase', {
-				p_workspace_id: validUUID,
-				p_passphrase: 'test-passphrase'
-			});
-			expect(result).toBe(true);
-		});
-
-		it('should return false on error', async () => {
-			const mockSupabase = {
-				rpc: vi.fn().mockResolvedValue({ data: null, error: new Error('Failed') })
-			};
-			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
-
-			const result = await verifyPassphrase(validUUID, 'wrong-passphrase');
-
-			expect(result).toBe(false);
 		});
 	});
 
@@ -229,17 +199,16 @@ describe('db', () => {
 	});
 
 	describe('syncAllData', () => {
-		it('should call rpc with sync_workspace_data', async () => {
+		it('should call rpc with sync_workspace_data (no passphrase)', async () => {
 			const mockSupabase = {
 				rpc: vi.fn().mockResolvedValue({ data: true, error: null })
 			};
 			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
 
-			const result = await syncAllData(validUUID, 'passphrase', validAppState);
+			const result = await syncAllData(validUUID, validAppState);
 
 			expect(mockSupabase.rpc).toHaveBeenCalledWith('sync_workspace_data', {
 				p_workspace_id: validUUID,
-				p_passphrase: 'passphrase',
 				p_state: validAppState
 			});
 			expect(result).toBe(true);
@@ -251,24 +220,23 @@ describe('db', () => {
 			};
 			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
 
-			const result = await syncAllData(validUUID, 'passphrase', validAppState);
+			const result = await syncAllData(validUUID, validAppState);
 
 			expect(result).toBe(false);
 		});
 	});
 
 	describe('rotateShareToken', () => {
-		it('should call rpc with rotate_workspace_share_token', async () => {
+		it('should call rpc with rotate_workspace_share_token (no passphrase)', async () => {
 			const mockSupabase = {
 				rpc: vi.fn().mockResolvedValue({ data: 'pmc_new', error: null })
 			};
 			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
 
-			const result = await rotateShareToken(validUUID, 'passphrase');
+			const result = await rotateShareToken(validUUID);
 
 			expect(mockSupabase.rpc).toHaveBeenCalledWith('rotate_workspace_share_token', {
-				p_workspace_id: validUUID,
-				p_passphrase: 'passphrase'
+				p_workspace_id: validUUID
 			});
 			expect(result).toBe('pmc_new');
 		});
@@ -279,9 +247,59 @@ describe('db', () => {
 			};
 			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
 
-			const result = await rotateShareToken(validUUID, 'passphrase');
+			const result = await rotateShareToken(validUUID);
 
 			expect(result).toBeNull();
+		});
+	});
+
+	describe('listUserWorkspaces', () => {
+		it('should return mapped workspace summaries', async () => {
+			const mockSupabase = {
+				rpc: vi.fn().mockResolvedValue({
+					data: [
+						{
+							id: validUUID,
+							short_name: 'my-craft',
+							created_at: '2026-01-01T00:00:00Z',
+							updated_at: '2026-01-15T00:00:00Z'
+						}
+					],
+					error: null
+				})
+			};
+			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
+
+			const result = await listUserWorkspaces();
+
+			expect(mockSupabase.rpc).toHaveBeenCalledWith('list_user_workspaces');
+			expect(result).toEqual([
+				{
+					id: validUUID,
+					shortName: 'my-craft',
+					createdAt: '2026-01-01T00:00:00Z',
+					updatedAt: '2026-01-15T00:00:00Z'
+				}
+			]);
+		});
+
+		it('should return empty array on error', async () => {
+			const mockSupabase = {
+				rpc: vi.fn().mockResolvedValue({ data: null, error: new Error('Failed') })
+			};
+			vi.mocked(getSupabase).mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabase>);
+
+			const result = await listUserWorkspaces();
+
+			expect(result).toEqual([]);
+		});
+
+		it('should return empty array when supabase is not available', async () => {
+			vi.mocked(getSupabase).mockReturnValueOnce(null);
+
+			const result = await listUserWorkspaces();
+
+			expect(result).toEqual([]);
 		});
 	});
 });

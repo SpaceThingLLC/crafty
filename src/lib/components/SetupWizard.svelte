@@ -17,10 +17,12 @@
 	import Layers from '@lucide/svelte/icons/layers';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { appState } from '$lib/state.svelte';
+	import { authState } from '$lib/auth.svelte';
 	import { toaster } from '$lib/toaster.svelte';
 	import { getLaborRateUnitLabel, getCurrencySymbol, formatCurrency } from '$lib/calculator';
 	import { createNewWorkspace } from '$lib/sync';
 	import { isSupabaseConfigured } from '$lib/db';
+	import AuthPanel from './AuthPanel.svelte';
 	import type { LaborRateUnit, WorkspaceInfo } from '$lib/types';
 
 	interface Props {
@@ -61,8 +63,6 @@
 
 	// Step 4: Review & Sync
 	let workspaceMode = $state<'online' | 'offline'>('offline');
-	let passphrase = $state('');
-	let confirmPassphrase = $state('');
 	let isCreatingWorkspace = $state(false);
 	let createdWorkspace = $state<WorkspaceInfo | null>(null);
 	let workspaceCreationFailed = $state(false);
@@ -122,8 +122,6 @@
 	function handleContinueOffline() {
 		workspaceMode = 'offline';
 		workspaceCreationFailed = false;
-		passphrase = '';
-		confirmPassphrase = '';
 	}
 
 	// Material management - saves directly to appState
@@ -199,28 +197,12 @@
 
 	// Step 4: Complete setup (optionally create workspace)
 	async function handleComplete() {
-		// If user chose online sync, create the workspace
+		// If user chose online sync, create the workspace (requires auth)
 		if (workspaceMode === 'online') {
-			if (!passphrase.trim()) {
+			if (!authState.isAuthenticated) {
 				toaster.error({
-					title: 'Passphrase Required',
-					description: 'Please enter a passphrase to protect your workspace.'
-				});
-				return;
-			}
-
-			if (passphrase !== confirmPassphrase) {
-				toaster.error({
-					title: 'Passphrase Mismatch',
-					description: 'The passphrases do not match.'
-				});
-				return;
-			}
-
-			if (passphrase.length < 8) {
-				toaster.error({
-					title: 'Passphrase Too Short',
-					description: 'Please use at least 8 characters.'
+					title: 'Sign In Required',
+					description: 'Please sign in to enable cloud sync.'
 				});
 				return;
 			}
@@ -228,7 +210,7 @@
 			isCreatingWorkspace = true;
 			workspaceCreationFailed = false;
 			try {
-				const workspace = await createNewWorkspace(passphrase);
+				const workspace = await createNewWorkspace();
 				if (workspace) {
 					createdWorkspace = workspace;
 					appState.setWorkspace(workspace);
@@ -807,35 +789,20 @@
 						</div>
 					</div>
 
-					<!-- Passphrase fields (only when online is selected) -->
+					<!-- Auth & workspace creation (only when online is selected) -->
 					{#if workspaceMode === 'online' && isConfigured}
-						<div class="space-y-3">
-							<label class="label">
-								<span class="label-text">Passphrase</span>
-								<input
-									type="password"
-									class="input"
-									bind:value={passphrase}
-									placeholder="Enter a memorable passphrase"
-									disabled={isCreatingWorkspace}
-								/>
-							</label>
-
-							<label class="label">
-								<span class="label-text">Confirm Passphrase</span>
-								<input
-									type="password"
-									class="input"
-									bind:value={confirmPassphrase}
-									placeholder="Enter passphrase again"
-									disabled={isCreatingWorkspace}
-								/>
-							</label>
-
-							<p class="text-xs text-surface-500">
-								Remember this passphrase! It's required to edit your data from other devices.
-							</p>
-						</div>
+						{#if !authState.isAuthenticated}
+							<AuthPanel message="Sign in to sync your data across devices." />
+						{:else}
+							<div class="p-3 bg-success-500/10 border border-success-500/30 rounded-lg">
+								<p class="text-sm font-medium">
+									Signed in as {authState.email}
+								</p>
+								<p class="text-xs text-surface-600-400 mt-1">
+									A cloud workspace will be created when you finish setup.
+								</p>
+							</div>
+						{/if}
 
 						<!-- Workspace creation failure UI -->
 						{#if workspaceCreationFailed}

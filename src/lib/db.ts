@@ -75,6 +75,13 @@ export interface WorkspaceLookup {
 	shareToken: string;
 }
 
+export interface WorkspaceSummary {
+	id: string;
+	shortName: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
 function settingsRowToSettings(row: SettingsRow): Settings {
 	return {
 		currencySymbol: row.currency_symbol,
@@ -109,15 +116,15 @@ function projectRowToProject(row: ProjectRow, materials: ProjectMaterial[]): Pro
 
 // Workspace operations
 
-export async function createWorkspace(
-	passphrase: string | null
-): Promise<WorkspaceLookup | null> {
+/**
+ * Create a new workspace owned by the authenticated user.
+ * Requires an active Supabase Auth session (auth.uid() used server-side).
+ */
+export async function createWorkspace(): Promise<WorkspaceLookup | null> {
 	const supabase = getSupabase();
 	if (!supabase) return null;
 
-	const { data, error } = await supabase.rpc('create_workspace', {
-		p_passphrase: passphrase
-	});
+	const { data, error } = await supabase.rpc('create_workspace');
 
 	if (error || !data) {
 		console.error('Failed to create workspace:', error);
@@ -126,26 +133,6 @@ export async function createWorkspace(
 
 	const row = data as WorkspaceLookupRow;
 	return { id: row.id, shortName: row.short_name, shareToken: row.share_token };
-}
-
-export async function verifyPassphrase(
-	workspaceId: string,
-	passphrase: string
-): Promise<boolean> {
-	const supabase = getSupabase();
-	if (!supabase) return false;
-
-	const { data, error } = await supabase.rpc('verify_passphrase', {
-		p_workspace_id: workspaceId,
-		p_passphrase: passphrase
-	});
-
-	if (error) {
-		console.error('Failed to verify passphrase:', error);
-		return false;
-	}
-
-	return (data as boolean) ?? false;
 }
 
 export async function resolveWorkspaceToken(
@@ -166,7 +153,7 @@ export async function resolveWorkspaceToken(
 	return { id: row.workspace_id, shortName: row.short_name };
 }
 
-// Read operations (public - no passphrase needed)
+// Read operations (public - no auth needed, uses share token)
 
 export async function fetchWorkspaceData(workspaceToken: string): Promise<AppState | null> {
 	const supabase = getSupabase();
@@ -225,9 +212,12 @@ export async function fetchWorkspaceData(workspaceToken: string): Promise<AppSta
 
 // Bulk sync operations
 
+/**
+ * Sync all workspace data to Supabase.
+ * Requires an active Supabase Auth session (auth.uid() verifies ownership server-side).
+ */
 export async function syncAllData(
 	workspaceId: string,
-	passphrase: string,
 	state: AppState
 ): Promise<boolean> {
 	const supabase = getSupabase();
@@ -236,7 +226,6 @@ export async function syncAllData(
 	try {
 		const { data, error } = await supabase.rpc('sync_workspace_data', {
 			p_workspace_id: workspaceId,
-			p_passphrase: passphrase,
 			p_state: state
 		});
 
@@ -252,17 +241,19 @@ export async function syncAllData(
 	}
 }
 
+/**
+ * Rotate the share token for a workspace.
+ * Requires an active Supabase Auth session (auth.uid() verifies ownership server-side).
+ */
 export async function rotateShareToken(
-	workspaceId: string,
-	passphrase: string
+	workspaceId: string
 ): Promise<string | null> {
 	const supabase = getSupabase();
 	if (!supabase) return null;
 
 	try {
 		const { data, error } = await supabase.rpc('rotate_workspace_share_token', {
-			p_workspace_id: workspaceId,
-			p_passphrase: passphrase
+			p_workspace_id: workspaceId
 		});
 
 		if (error || !data) {
@@ -274,6 +265,40 @@ export async function rotateShareToken(
 	} catch (error) {
 		console.error('Failed to rotate share token:', error);
 		return null;
+	}
+}
+
+/**
+ * List all workspaces owned by the authenticated user.
+ */
+export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
+	const supabase = getSupabase();
+	if (!supabase) return [];
+
+	try {
+		const { data, error } = await supabase.rpc('list_user_workspaces');
+
+		if (error || !data) {
+			console.error('Failed to list workspaces:', error);
+			return [];
+		}
+
+		const rows = data as Array<{
+			id: string;
+			short_name: string | null;
+			created_at: string;
+			updated_at: string;
+		}>;
+
+		return rows.map((row) => ({
+			id: row.id,
+			shortName: row.short_name,
+			createdAt: row.created_at,
+			updatedAt: row.updated_at
+		}));
+	} catch (error) {
+		console.error('Failed to list workspaces:', error);
+		return [];
 	}
 }
 
