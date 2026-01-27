@@ -24,6 +24,7 @@ interface MaterialRow {
 	unit_cost: number;
 	unit: string;
 	notes: string | null;
+	cost: number | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -89,7 +90,8 @@ function materialRowToMaterial(row: MaterialRow): Material {
 		name: row.name,
 		unitCost: row.unit_cost,
 		unit: row.unit,
-		notes: row.notes ?? undefined
+		notes: row.notes ?? undefined,
+		cost: row.cost ?? undefined
 	};
 }
 

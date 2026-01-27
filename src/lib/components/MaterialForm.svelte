@@ -15,6 +15,7 @@
 
 	// Capture initial values for form state (intentionally not reactive to prop changes)
 	let name = $state(untrack(() => material?.name ?? ''));
+	let cost = $state(untrack(() => material?.cost));
 	let unitCost = $state(untrack(() => material?.unitCost ?? 0));
 	let unit = $state(untrack(() => material?.unit ?? 'each'));
 	let notes = $state(untrack(() => material?.notes ?? ''));
@@ -33,6 +34,7 @@
 		if (material) {
 			appState.updateMaterial(material.id, {
 				name: name.trim(),
+				cost: cost !== undefined && cost !== null ? cost : undefined,
 				unitCost,
 				unit: unit.trim() || 'each',
 				notes: notes.trim() || undefined
@@ -40,6 +42,7 @@
 		} else {
 			appState.addMaterial({
 				name: name.trim(),
+				cost: cost !== undefined && cost !== null ? cost : undefined,
 				unitCost,
 				unit: unit.trim() || 'each',
 				notes: notes.trim() || undefined
@@ -56,9 +59,21 @@
 		<input type="text" class="input" bind:value={name} placeholder="e.g., Beads" required />
 	</label>
 
-	<div class="grid grid-cols-2 gap-4">
+	<div class="grid grid-cols-3 gap-4">
 		<label class="label">
-			<span class="label-text">Cost per Unit</span>
+			<span class="label-text">Your Cost</span>
+			<input
+				type="number"
+				class="input"
+				bind:value={cost}
+				min="0"
+				step="0.01"
+				placeholder="0.00"
+			/>
+		</label>
+
+		<label class="label">
+			<span class="label-text">Price per Unit</span>
 			<input
 				type="number"
 				class="input"

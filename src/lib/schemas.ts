@@ -9,7 +9,8 @@ export const MaterialSchema = z.object({
 	name: z.string().min(1, 'Material name is required'),
 	unitCost: z.number().nonnegative('Unit cost must be non-negative'),
 	unit: z.string().min(1, 'Unit is required'),
-	notes: z.string().optional()
+	notes: z.string().optional(),
+	cost: z.number().nonnegative('Cost must be non-negative').optional()
 });
 
 /**
