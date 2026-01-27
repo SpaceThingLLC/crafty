@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
+	WorkspaceSchema,
+	LaborTypeSchema,
 	MaterialSchema,
 	ProjectMaterialSchema,
 	ProjectSchema,
+	ProjectPhotoSchema,
 	LaborRateUnitSchema,
 	CurrencyCodeSchema,
 	SettingsSchema,
+	ProfileSchema,
 	AppStateSchema,
 	formatValidationError,
 	formatValidationErrors
@@ -13,6 +17,24 @@ import {
 
 // Valid test fixtures
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
+const validUUID2 = '550e8400-e29b-41d4-a716-446655440001';
+
+const validWorkspace = {
+	id: validUUID,
+	ownerId: validUUID2,
+	name: 'My Workspace',
+	isPublic: true,
+	sortOrder: 0
+};
+
+const validLaborType = {
+	id: validUUID,
+	name: 'Standard Labor',
+	rate: 20,
+	rateUnit: 'hour' as const,
+	sortOrder: 0
+};
+
 const validMaterial = {
 	id: validUUID,
 	name: 'Test Material',
@@ -21,34 +43,115 @@ const validMaterial = {
 };
 
 const validProjectMaterial = {
-	materialId: validUUID,
-	quantity: 2
+	id: validUUID,
+	materialId: validUUID2,
+	quantity: 2,
+	materialName: 'Test Material',
+	materialUnitCost: 5.99,
+	materialUnit: 'each'
 };
 
 const validProject = {
 	id: validUUID,
 	name: 'Test Project',
-	materials: [validProjectMaterial],
+	slug: 'test-project',
 	laborMinutes: 60,
-	createdAt: Date.now(),
-	updatedAt: Date.now()
+	isPublic: true,
+	sortOrder: 0
 };
 
 const validSettings = {
 	currencySymbol: '$',
-	currencyCode: 'USD',
-	laborRate: 20,
-	laborRateUnit: 'hour' as const
+	currencyCode: 'USD' as const,
+	defaultLaborTypeId: null
+};
+
+const validProfile = {
+	id: validUUID,
+	username: 'janecraft',
+	displayName: 'Jane Craft'
+};
+
+const validProjectPhoto = {
+	id: validUUID,
+	projectId: validUUID2,
+	storagePath: 'user-id/project-id/photo.jpg',
+	sortOrder: 0
 };
 
 const validAppState = {
 	settings: validSettings,
 	materials: [validMaterial],
+	laborTypes: [validLaborType],
 	projects: [validProject],
+	projectMaterials: [validProjectMaterial],
 	lastSelectedProjectId: validUUID
 };
 
 describe('schemas', () => {
+	describe('WorkspaceSchema', () => {
+		it('should accept valid workspace', () => {
+			const result = WorkspaceSchema.safeParse(validWorkspace);
+			expect(result.success).toBe(true);
+		});
+
+		it('should accept workspace with optional description', () => {
+			const result = WorkspaceSchema.safeParse({
+				...validWorkspace,
+				description: 'My craft workspace'
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('should reject missing name', () => {
+			const { name, ...w } = validWorkspace;
+			const result = WorkspaceSchema.safeParse(w);
+			expect(result.success).toBe(false);
+		});
+
+		it('should reject empty name', () => {
+			const result = WorkspaceSchema.safeParse({ ...validWorkspace, name: '' });
+			expect(result.success).toBe(false);
+		});
+
+		it('should reject invalid owner UUID', () => {
+			const result = WorkspaceSchema.safeParse({ ...validWorkspace, ownerId: 'not-uuid' });
+			expect(result.success).toBe(false);
+		});
+	});
+
+	describe('LaborTypeSchema', () => {
+		it('should accept valid labor type', () => {
+			const result = LaborTypeSchema.safeParse(validLaborType);
+			expect(result.success).toBe(true);
+		});
+
+		it('should accept fixed rate unit', () => {
+			const result = LaborTypeSchema.safeParse({ ...validLaborType, rateUnit: 'fixed' });
+			expect(result.success).toBe(true);
+		});
+
+		it('should reject negative rate', () => {
+			const result = LaborTypeSchema.safeParse({ ...validLaborType, rate: -5 });
+			expect(result.success).toBe(false);
+		});
+
+		it('should accept zero rate', () => {
+			const result = LaborTypeSchema.safeParse({ ...validLaborType, rate: 0 });
+			expect(result.success).toBe(true);
+		});
+
+		it('should reject empty name', () => {
+			const result = LaborTypeSchema.safeParse({ ...validLaborType, name: '' });
+			expect(result.success).toBe(false);
+		});
+
+		it('should reject invalid rate unit', () => {
+			const result = LaborTypeSchema.safeParse({ ...validLaborType, rateUnit: 'day' });
+			expect(result.success).toBe(false);
+		});
+	});
+
 	describe('MaterialSchema', () => {
 		it('should accept valid material', () => {
 			const result = MaterialSchema.safeParse(validMaterial);
@@ -63,6 +166,14 @@ describe('schemas', () => {
 			expect(result.success).toBe(true);
 		});
 
+		it('should accept material with optional workspaceId', () => {
+			const result = MaterialSchema.safeParse({
+				...validMaterial,
+				workspaceId: validUUID2
+			});
+			expect(result.success).toBe(true);
+		});
+
 		it('should reject missing name', () => {
 			const result = MaterialSchema.safeParse({
 				id: validUUID,
@@ -73,74 +184,47 @@ describe('schemas', () => {
 		});
 
 		it('should reject empty name', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				name: ''
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, name: '' });
 			expect(result.success).toBe(false);
 		});
 
 		it('should reject negative unitCost', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				unitCost: -5
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, unitCost: -5 });
 			expect(result.success).toBe(false);
 		});
 
 		it('should accept zero unitCost', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				unitCost: 0
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, unitCost: 0 });
 			expect(result.success).toBe(true);
 		});
 
 		it('should reject invalid UUID', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				id: 'not-a-uuid'
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, id: 'not-a-uuid' });
 			expect(result.success).toBe(false);
 		});
 
 		it('should reject empty unit', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				unit: ''
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, unit: '' });
 			expect(result.success).toBe(false);
 		});
 
 		it('should accept decimal unitCost', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				unitCost: 12.345
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, unitCost: 12.345 });
 			expect(result.success).toBe(true);
 		});
 
 		it('should accept material with optional cost', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				cost: 3.5
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, cost: 3.5 });
 			expect(result.success).toBe(true);
 		});
 
 		it('should reject negative cost', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				cost: -5
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, cost: -5 });
 			expect(result.success).toBe(false);
 		});
 
 		it('should accept zero cost', () => {
-			const result = MaterialSchema.safeParse({
-				...validMaterial,
-				cost: 0
-			});
+			const result = MaterialSchema.safeParse({ ...validMaterial, cost: 0 });
 			expect(result.success).toBe(true);
 		});
 	});
@@ -151,9 +235,17 @@ describe('schemas', () => {
 			expect(result.success).toBe(true);
 		});
 
+		it('should accept null materialId', () => {
+			const result = ProjectMaterialSchema.safeParse({
+				...validProjectMaterial,
+				materialId: null
+			});
+			expect(result.success).toBe(true);
+		});
+
 		it('should reject zero quantity', () => {
 			const result = ProjectMaterialSchema.safeParse({
-				materialId: validUUID,
+				...validProjectMaterial,
 				quantity: 0
 			});
 			expect(result.success).toBe(false);
@@ -161,7 +253,7 @@ describe('schemas', () => {
 
 		it('should reject negative quantity', () => {
 			const result = ProjectMaterialSchema.safeParse({
-				materialId: validUUID,
+				...validProjectMaterial,
 				quantity: -1
 			});
 			expect(result.success).toBe(false);
@@ -169,16 +261,24 @@ describe('schemas', () => {
 
 		it('should accept fractional quantity', () => {
 			const result = ProjectMaterialSchema.safeParse({
-				materialId: validUUID,
+				...validProjectMaterial,
 				quantity: 2.5
 			});
 			expect(result.success).toBe(true);
 		});
 
-		it('should reject invalid materialId UUID', () => {
+		it('should reject empty materialName', () => {
 			const result = ProjectMaterialSchema.safeParse({
-				materialId: 'not-a-uuid',
-				quantity: 1
+				...validProjectMaterial,
+				materialName: ''
+			});
+			expect(result.success).toBe(false);
+		});
+
+		it('should reject negative materialUnitCost', () => {
+			const result = ProjectMaterialSchema.safeParse({
+				...validProjectMaterial,
+				materialUnitCost: -1
 			});
 			expect(result.success).toBe(false);
 		});
@@ -190,18 +290,26 @@ describe('schemas', () => {
 			expect(result.success).toBe(true);
 		});
 
-		it('should accept project with empty materials array', () => {
-			const result = ProjectSchema.safeParse({
-				...validProject,
-				materials: []
-			});
-			expect(result.success).toBe(true);
-		});
-
 		it('should accept project with optional description', () => {
 			const result = ProjectSchema.safeParse({
 				...validProject,
 				description: 'A description of the project'
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('should accept project with laborTypeId', () => {
+			const result = ProjectSchema.safeParse({
+				...validProject,
+				laborTypeId: validUUID2
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('should accept project with null laborTypeId', () => {
+			const result = ProjectSchema.safeParse({
+				...validProject,
+				laborTypeId: null
 			});
 			expect(result.success).toBe(true);
 		});
@@ -213,49 +321,58 @@ describe('schemas', () => {
 		});
 
 		it('should reject empty name', () => {
-			const result = ProjectSchema.safeParse({
-				...validProject,
-				name: ''
-			});
+			const result = ProjectSchema.safeParse({ ...validProject, name: '' });
+			expect(result.success).toBe(false);
+		});
+
+		it('should reject missing slug', () => {
+			const { slug, ...projectWithoutSlug } = validProject;
+			const result = ProjectSchema.safeParse(projectWithoutSlug);
+			expect(result.success).toBe(false);
+		});
+
+		it('should reject empty slug', () => {
+			const result = ProjectSchema.safeParse({ ...validProject, slug: '' });
 			expect(result.success).toBe(false);
 		});
 
 		it('should reject negative laborMinutes', () => {
-			const result = ProjectSchema.safeParse({
-				...validProject,
-				laborMinutes: -10
-			});
+			const result = ProjectSchema.safeParse({ ...validProject, laborMinutes: -10 });
 			expect(result.success).toBe(false);
 		});
 
 		it('should accept zero laborMinutes', () => {
-			const result = ProjectSchema.safeParse({
-				...validProject,
-				laborMinutes: 0
+			const result = ProjectSchema.safeParse({ ...validProject, laborMinutes: 0 });
+			expect(result.success).toBe(true);
+		});
+	});
+
+	describe('ProjectPhotoSchema', () => {
+		it('should accept valid project photo', () => {
+			const result = ProjectPhotoSchema.safeParse(validProjectPhoto);
+			expect(result.success).toBe(true);
+		});
+
+		it('should accept photo with alt text', () => {
+			const result = ProjectPhotoSchema.safeParse({
+				...validProjectPhoto,
+				altText: 'A handmade ceramic bowl'
 			});
 			expect(result.success).toBe(true);
 		});
 
-		it('should reject invalid nested material', () => {
-			const result = ProjectSchema.safeParse({
-				...validProject,
-				materials: [{ materialId: 'invalid-uuid', quantity: 1 }]
+		it('should reject empty storagePath', () => {
+			const result = ProjectPhotoSchema.safeParse({
+				...validProjectPhoto,
+				storagePath: ''
 			});
 			expect(result.success).toBe(false);
 		});
 
-		it('should reject invalid createdAt', () => {
-			const result = ProjectSchema.safeParse({
-				...validProject,
-				createdAt: -1
-			});
-			expect(result.success).toBe(false);
-		});
-
-		it('should reject non-integer createdAt', () => {
-			const result = ProjectSchema.safeParse({
-				...validProject,
-				createdAt: 1234.56
+		it('should reject invalid projectId UUID', () => {
+			const result = ProjectPhotoSchema.safeParse({
+				...validProjectPhoto,
+				projectId: 'not-uuid'
 			});
 			expect(result.success).toBe(false);
 		});
@@ -263,58 +380,52 @@ describe('schemas', () => {
 
 	describe('LaborRateUnitSchema', () => {
 		it('should accept "hour"', () => {
-			const result = LaborRateUnitSchema.safeParse('hour');
-			expect(result.success).toBe(true);
+			expect(LaborRateUnitSchema.safeParse('hour').success).toBe(true);
 		});
 
 		it('should accept "minute"', () => {
-			const result = LaborRateUnitSchema.safeParse('minute');
-			expect(result.success).toBe(true);
+			expect(LaborRateUnitSchema.safeParse('minute').success).toBe(true);
 		});
 
 		it('should accept "15min"', () => {
-			const result = LaborRateUnitSchema.safeParse('15min');
-			expect(result.success).toBe(true);
+			expect(LaborRateUnitSchema.safeParse('15min').success).toBe(true);
+		});
+
+		it('should accept "fixed"', () => {
+			expect(LaborRateUnitSchema.safeParse('fixed').success).toBe(true);
 		});
 
 		it('should reject invalid unit', () => {
-			const result = LaborRateUnitSchema.safeParse('day');
-			expect(result.success).toBe(false);
+			expect(LaborRateUnitSchema.safeParse('day').success).toBe(false);
 		});
 
 		it('should be case sensitive', () => {
-			const result = LaborRateUnitSchema.safeParse('Hour');
-			expect(result.success).toBe(false);
+			expect(LaborRateUnitSchema.safeParse('Hour').success).toBe(false);
 		});
 	});
 
 	describe('CurrencyCodeSchema', () => {
 		it('should accept USD', () => {
-			const result = CurrencyCodeSchema.safeParse('USD');
-			expect(result.success).toBe(true);
+			expect(CurrencyCodeSchema.safeParse('USD').success).toBe(true);
 		});
 
 		it('should accept EUR', () => {
-			const result = CurrencyCodeSchema.safeParse('EUR');
-			expect(result.success).toBe(true);
+			expect(CurrencyCodeSchema.safeParse('EUR').success).toBe(true);
 		});
 
 		it('should accept all supported currencies', () => {
 			const codes = ['USD', 'CAD', 'EUR', 'GBP', 'AUD', 'MXN', 'JPY', 'CHF', 'NZD', 'INR'];
 			codes.forEach((code) => {
-				const result = CurrencyCodeSchema.safeParse(code);
-				expect(result.success).toBe(true);
+				expect(CurrencyCodeSchema.safeParse(code).success).toBe(true);
 			});
 		});
 
 		it('should reject invalid currency code', () => {
-			const result = CurrencyCodeSchema.safeParse('XXX');
-			expect(result.success).toBe(false);
+			expect(CurrencyCodeSchema.safeParse('XXX').success).toBe(false);
 		});
 
 		it('should be case sensitive', () => {
-			const result = CurrencyCodeSchema.safeParse('usd');
-			expect(result.success).toBe(false);
+			expect(CurrencyCodeSchema.safeParse('usd').success).toBe(false);
 		});
 	});
 
@@ -324,16 +435,16 @@ describe('schemas', () => {
 			expect(result.success).toBe(true);
 		});
 
-		it('should accept settings without currencyCode (legacy)', () => {
+		it('should accept settings without currencyCode', () => {
 			const { currencyCode, ...settingsWithoutCode } = validSettings;
 			const result = SettingsSchema.safeParse(settingsWithoutCode);
 			expect(result.success).toBe(true);
 		});
 
-		it('should accept settings with laborRatePromptDismissed', () => {
+		it('should accept settings with defaultLaborTypeId', () => {
 			const result = SettingsSchema.safeParse({
 				...validSettings,
-				laborRatePromptDismissed: true
+				defaultLaborTypeId: validUUID
 			});
 			expect(result.success).toBe(true);
 		});
@@ -346,35 +457,38 @@ describe('schemas', () => {
 			expect(result.success).toBe(false);
 		});
 
-		it('should reject negative laborRate', () => {
-			const result = SettingsSchema.safeParse({
-				...validSettings,
-				laborRate: -10
-			});
-			expect(result.success).toBe(false);
-		});
-
-		it('should accept zero laborRate', () => {
-			const result = SettingsSchema.safeParse({
-				...validSettings,
-				laborRate: 0
-			});
-			expect(result.success).toBe(true);
-		});
-
-		it('should reject invalid laborRateUnit', () => {
-			const result = SettingsSchema.safeParse({
-				...validSettings,
-				laborRateUnit: 'invalid'
-			});
-			expect(result.success).toBe(false);
-		});
-
 		it('should reject invalid currencyCode', () => {
 			const result = SettingsSchema.safeParse({
 				...validSettings,
 				currencyCode: 'INVALID'
 			});
+			expect(result.success).toBe(false);
+		});
+	});
+
+	describe('ProfileSchema', () => {
+		it('should accept valid profile', () => {
+			const result = ProfileSchema.safeParse(validProfile);
+			expect(result.success).toBe(true);
+		});
+
+		it('should accept profile with all fields', () => {
+			const result = ProfileSchema.safeParse({
+				...validProfile,
+				bio: 'I make ceramics',
+				contactInfo: { email: 'jane@example.com', instagram: '@janecraft' },
+				avatarUrl: 'https://example.com/avatar.jpg'
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('should reject empty username', () => {
+			const result = ProfileSchema.safeParse({ ...validProfile, username: '' });
+			expect(result.success).toBe(false);
+		});
+
+		it('should reject invalid UUID', () => {
+			const result = ProfileSchema.safeParse({ ...validProfile, id: 'not-uuid' });
 			expect(result.success).toBe(false);
 		});
 	});
@@ -397,7 +511,9 @@ describe('schemas', () => {
 			const result = AppStateSchema.safeParse({
 				settings: validSettings,
 				materials: [],
+				laborTypes: [],
 				projects: [],
+				projectMaterials: [],
 				lastSelectedProjectId: null
 			});
 			expect(result.success).toBe(true);
@@ -406,7 +522,7 @@ describe('schemas', () => {
 		it('should reject invalid settings', () => {
 			const result = AppStateSchema.safeParse({
 				...validAppState,
-				settings: { ...validSettings, laborRate: -1 }
+				settings: { ...validSettings, currencySymbol: '' }
 			});
 			expect(result.success).toBe(false);
 		});
@@ -440,13 +556,13 @@ describe('schemas', () => {
 		it('should format error with path', () => {
 			const issue = {
 				code: 'custom' as const,
-				path: ['settings', 'laborRate'],
-				message: 'Must be non-negative'
+				path: ['settings', 'currencySymbol'],
+				message: 'Currency symbol is required'
 			};
 
 			const result = formatValidationError(issue);
 
-			expect(result).toBe('settings > laborRate: Must be non-negative');
+			expect(result).toBe('settings > currencySymbol: Currency symbol is required');
 		});
 
 		it('should format error at root level', () => {

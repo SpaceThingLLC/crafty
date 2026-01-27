@@ -1,12 +1,26 @@
 import { z } from 'zod';
 import {
+	WorkspaceSchema,
+	LaborTypeSchema,
 	MaterialSchema,
 	ProjectMaterialSchema,
 	ProjectSchema,
+	ProjectPhotoSchema,
 	LaborRateUnitSchema,
 	SettingsSchema,
+	ProfileSchema,
 	AppStateSchema
 } from './schemas';
+
+/**
+ * A workspace grouping projects, materials, and labor types
+ */
+export type Workspace = z.infer<typeof WorkspaceSchema>;
+
+/**
+ * A labor type with rate information
+ */
+export type LaborType = z.infer<typeof LaborTypeSchema>;
 
 /**
  * A material in the shared materials library
@@ -14,14 +28,19 @@ import {
 export type Material = z.infer<typeof MaterialSchema>;
 
 /**
- * A material assignment within a project
+ * A material assignment within a project (with snapshot of cost at assignment time)
  */
 export type ProjectMaterial = z.infer<typeof ProjectMaterialSchema>;
 
 /**
- * A craft project with materials and labor time
+ * A craft project
  */
 export type Project = z.infer<typeof ProjectSchema>;
+
+/**
+ * A photo attached to a project
+ */
+export type ProjectPhoto = z.infer<typeof ProjectPhotoSchema>;
 
 /**
  * Labor rate unit options
@@ -29,88 +48,37 @@ export type Project = z.infer<typeof ProjectSchema>;
 export type LaborRateUnit = z.infer<typeof LaborRateUnitSchema>;
 
 /**
- * Application settings
+ * Application settings (per workspace)
  */
 export type Settings = z.infer<typeof SettingsSchema>;
 
 /**
- * Complete application state
+ * User profile
+ */
+export type Profile = z.infer<typeof ProfileSchema>;
+
+/**
+ * Complete local application state
  */
 export type AppState = z.infer<typeof AppStateSchema>;
 
 /**
- * Workspace sync status
- */
-export type SyncStatus = 'offline' | 'syncing' | 'synced' | 'error' | 'pending';
-
-/**
- * Pending change to sync
- */
-export interface PendingChange {
-	id: string;
-	type: 'insert' | 'update' | 'delete';
-	table: 'settings' | 'materials' | 'projects' | 'project_materials';
-	data: Record<string, unknown>;
-	timestamp: number;
-}
-
-/**
- * Workspace metadata stored locally
- */
-export interface WorkspaceInfo {
-	id: string;
-	shortName?: string | null; // Human-friendly vanity label (not an access token)
-	shareToken: string | null; // High-entropy share token for view access (treat as secret)
-	isOwner: boolean; // True if user owns this workspace (authenticated via auth.uid())
-	createdAt: number;
-}
-
-/**
- * Local history of visited workspace URLs
- */
-export interface ProjectHistoryEntry {
-	id: string;
-	url: string;
-	visitedAt: number;
-}
-
-/**
- * Extended state with workspace and sync info
- */
-export interface ExtendedAppState extends AppState {
-	workspace: WorkspaceInfo | null;
-	syncStatus: SyncStatus;
-	lastSyncedAt: number | null;
-	pendingChanges: PendingChange[];
-}
-
-/**
- * Default settings for new installations
+ * Default settings for new workspaces
  */
 export const DEFAULT_SETTINGS: Settings = {
 	currencySymbol: '$',
 	currencyCode: 'USD',
-	laborRate: 0.33,
-	laborRateUnit: 'minute'
+	defaultLaborTypeId: null
 };
 
 /**
- * Default empty state
+ * Default empty state for local-only mode
  */
 export const DEFAULT_STATE: AppState = {
 	settings: DEFAULT_SETTINGS,
 	materials: [],
+	laborTypes: [],
 	projects: [],
+	projectMaterials: [],
 	lastSelectedProjectId: null
-};
-
-/**
- * Default extended state with workspace info
- */
-export const DEFAULT_EXTENDED_STATE: ExtendedAppState = {
-	...DEFAULT_STATE,
-	workspace: null,
-	syncStatus: 'offline',
-	lastSyncedAt: null,
-	pendingChanges: []
 };

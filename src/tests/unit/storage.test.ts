@@ -1,28 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-	loadState,
-	saveState,
-	clearState,
-	exportState,
-	importState,
-	loadWorkspace,
-	saveWorkspace,
-	clearWorkspace,
-	loadSyncMeta,
-	saveSyncMeta,
-	clearSyncMeta,
-	loadProjectHistory,
-	saveProjectHistory,
-	recordProjectVisit,
-	clearProjectHistory,
-	clearLocalData,
-	loadExtendedState
-} from '$lib/storage';
+import { loadState, saveState, clearState, exportState, importState } from '$lib/storage';
 import { DEFAULT_STATE, DEFAULT_SETTINGS } from '$lib/types';
-import type { AppState, WorkspaceInfo } from '$lib/types';
+import type { AppState } from '$lib/types';
 
-// Valid test fixtures
+// Valid test fixtures matching new schema
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
+const validUUID2 = '550e8400-e29b-41d4-a716-446655440001';
+const validUUID3 = '550e8400-e29b-41d4-a716-446655440002';
 
 const validMaterial = {
 	id: validUUID,
@@ -32,37 +16,48 @@ const validMaterial = {
 };
 
 const validProject = {
-	id: '550e8400-e29b-41d4-a716-446655440001',
+	id: validUUID2,
 	name: 'Test Project',
-	materials: [],
+	slug: 'test-project',
 	laborMinutes: 60,
-	createdAt: Date.now(),
-	updatedAt: Date.now()
+	isPublic: true,
+	sortOrder: 0
+};
+
+const validProjectMaterial = {
+	id: validUUID3,
+	projectId: validUUID2,
+	materialId: validUUID,
+	quantity: 2,
+	materialName: 'Test Material',
+	materialUnitCost: 5.99,
+	materialUnit: 'each'
+};
+
+const validLaborType = {
+	id: '550e8400-e29b-41d4-a716-446655440003',
+	name: 'Hourly',
+	rate: 25,
+	rateUnit: 'hour' as const,
+	sortOrder: 0
 };
 
 const validAppState: AppState = {
 	settings: {
 		currencySymbol: '$',
 		currencyCode: 'USD',
-		laborRate: 20,
-		laborRateUnit: 'hour'
+		defaultLaborTypeId: null
 	},
 	materials: [validMaterial],
+	laborTypes: [validLaborType],
 	projects: [validProject],
+	projectMaterials: [validProjectMaterial],
 	lastSelectedProjectId: validUUID
-};
-
-const validWorkspace: WorkspaceInfo = {
-	id: validUUID,
-	shareToken: 'pmc_test_token',
-	isOwner: true,
-	createdAt: Date.now()
 };
 
 describe('storage', () => {
 	beforeEach(() => {
 		localStorage.clear();
-		sessionStorage.clear();
 		vi.clearAllMocks();
 	});
 
@@ -81,6 +76,8 @@ describe('storage', () => {
 			expect(result.materials).toHaveLength(1);
 			expect(result.materials[0].name).toBe('Test Material');
 			expect(result.projects).toHaveLength(1);
+			expect(result.laborTypes).toHaveLength(1);
+			expect(result.projectMaterials).toHaveLength(1);
 		});
 
 		it('should migrate from legacy storage key', () => {
@@ -88,7 +85,6 @@ describe('storage', () => {
 
 			const result = loadState();
 
-			// Should have migrated data
 			expect(result.materials).toHaveLength(1);
 			// Old key should be removed
 			expect(localStorage.getItem('crafty-app-state')).toBeNull();
@@ -106,7 +102,7 @@ describe('storage', () => {
 
 		it('should return default state when data fails validation', () => {
 			const invalidState = {
-				settings: { laborRate: -1 } // Invalid: negative
+				settings: { currencySymbol: '' } // Invalid: empty string
 			};
 			localStorage.setItem('pricemycraft-app-state', JSON.stringify(invalidState));
 
@@ -117,7 +113,7 @@ describe('storage', () => {
 
 		it('should migrate old schema format with missing fields', () => {
 			const oldFormat = {
-				settings: { currencySymbol: '$' }, // Missing other fields
+				settings: { currencySymbol: '$' },
 				materials: [],
 				projects: []
 			};
@@ -126,8 +122,110 @@ describe('storage', () => {
 			const result = loadState();
 
 			// Should have merged with defaults
-			expect(result.settings.laborRate).toBe(DEFAULT_SETTINGS.laborRate);
-			expect(result.settings.laborRateUnit).toBe(DEFAULT_SETTINGS.laborRateUnit);
+			expect(result.settings.currencyCode).toBe(DEFAULT_SETTINGS.currencyCode);
+			expect(result.settings.defaultLaborTypeId).toBeNull();
+			// New arrays should be initialized
+			expect(result.laborTypes).toEqual([]);
+			expect(result.projectMaterials).toEqual([]);
+		});
+
+		it('should migrate old settings format (strip laborRate/laborRateUnit)', () => {
+			const oldFormat = {
+				settings: {
+					currencySymbol: '$',
+					laborRate: 20,
+					laborRateUnit: 'hour',
+					laborRatePromptDismissed: true
+				},
+				materials: [],
+				projects: []
+			};
+			localStorage.setItem('pricemycraft-app-state', JSON.stringify(oldFormat));
+
+			const result = loadState();
+
+			// Old fields should be stripped, new defaults applied
+			expect(result.settings.defaultLaborTypeId).toBeNull();
+			expect(result.settings.currencySymbol).toBe('$');
+			expect((result.settings as Record<string, unknown>).laborRate).toBeUndefined();
+			expect((result.settings as Record<string, unknown>).laborRateUnit).toBeUndefined();
+		});
+
+		it('should migrate old projects with embedded materials to separate projectMaterials', () => {
+			const oldFormat = {
+				settings: { currencySymbol: '$' },
+				materials: [{ id: validUUID, name: 'Yarn', unitCost: 8.5, unit: 'skein' }],
+				projects: [
+					{
+						id: validUUID2,
+						name: 'Scarf',
+						materials: [{ materialId: validUUID, quantity: 3 }],
+						laborMinutes: 120,
+						createdAt: 1700000000000,
+						updatedAt: 1700000000000
+					}
+				]
+			};
+			localStorage.setItem('pricemycraft-app-state', JSON.stringify(oldFormat));
+
+			const result = loadState();
+
+			// Project should no longer have embedded materials
+			expect((result.projects[0] as Record<string, unknown>).materials).toBeUndefined();
+			// ProjectMaterials should be extracted with snapshot data
+			expect(result.projectMaterials).toHaveLength(1);
+			expect(result.projectMaterials[0].projectId).toBe(validUUID2);
+			expect(result.projectMaterials[0].materialId).toBe(validUUID);
+			expect(result.projectMaterials[0].quantity).toBe(3);
+			expect(result.projectMaterials[0].materialName).toBe('Yarn');
+			expect(result.projectMaterials[0].materialUnitCost).toBe(8.5);
+			expect(result.projectMaterials[0].materialUnit).toBe('skein');
+		});
+
+		it('should generate slug from project name during migration', () => {
+			const oldFormat = {
+				settings: { currencySymbol: '$' },
+				materials: [],
+				projects: [
+					{
+						id: validUUID2,
+						name: 'My Cool Project!',
+						materials: [],
+						laborMinutes: 0,
+						createdAt: 1700000000000,
+						updatedAt: 1700000000000
+					}
+				]
+			};
+			localStorage.setItem('pricemycraft-app-state', JSON.stringify(oldFormat));
+
+			const result = loadState();
+
+			expect(result.projects[0].slug).toBe('my-cool-project');
+		});
+
+		it('should convert numeric timestamps to ISO strings during migration', () => {
+			const timestamp = 1700000000000;
+			const oldFormat = {
+				settings: { currencySymbol: '$' },
+				materials: [],
+				projects: [
+					{
+						id: validUUID2,
+						name: 'Test',
+						materials: [],
+						laborMinutes: 0,
+						createdAt: timestamp,
+						updatedAt: timestamp
+					}
+				]
+			};
+			localStorage.setItem('pricemycraft-app-state', JSON.stringify(oldFormat));
+
+			const result = loadState();
+
+			expect(result.projects[0].createdAt).toBe(new Date(timestamp).toISOString());
+			expect(result.projects[0].updatedAt).toBe(new Date(timestamp).toISOString());
 		});
 
 		it('should handle undefined lastSelectedProjectId', () => {
@@ -141,6 +239,34 @@ describe('storage', () => {
 
 			expect(result.lastSelectedProjectId).toBeNull();
 		});
+
+		it('should not re-extract projectMaterials when they already exist', () => {
+			// State that already has the new format with separate projectMaterials
+			const newFormatState = {
+				settings: { currencySymbol: '$' },
+				materials: [{ id: validUUID, name: 'Yarn', unitCost: 8.5, unit: 'skein' }],
+				laborTypes: [],
+				projects: [
+					{
+						id: validUUID2,
+						name: 'Scarf',
+						slug: 'scarf',
+						laborMinutes: 120,
+						isPublic: true,
+						sortOrder: 0
+					}
+				],
+				projectMaterials: [validProjectMaterial],
+				lastSelectedProjectId: null
+			};
+			localStorage.setItem('pricemycraft-app-state', JSON.stringify(newFormatState));
+
+			const result = loadState();
+
+			// Should keep existing projectMaterials, not duplicate
+			expect(result.projectMaterials).toHaveLength(1);
+			expect(result.projectMaterials[0].id).toBe(validProjectMaterial.id);
+		});
 	});
 
 	describe('saveState', () => {
@@ -152,6 +278,8 @@ describe('storage', () => {
 
 			const parsed = JSON.parse(stored!);
 			expect(parsed.materials).toHaveLength(1);
+			expect(parsed.laborTypes).toHaveLength(1);
+			expect(parsed.projectMaterials).toHaveLength(1);
 		});
 
 		it('should overwrite existing state', () => {
@@ -214,7 +342,7 @@ describe('storage', () => {
 
 		it('should return validation errors for schema violations', () => {
 			const invalid = JSON.stringify({
-				settings: { laborRate: -1 }
+				settings: { currencySymbol: '' } // Invalid: empty string
 			});
 
 			const result = importState(invalid);
@@ -228,6 +356,8 @@ describe('storage', () => {
 			expect(result.success).toBe(true);
 			if (result.success) {
 				expect(result.data.materials).toHaveLength(1);
+				expect(result.data.laborTypes).toHaveLength(1);
+				expect(result.data.projectMaterials).toHaveLength(1);
 			}
 		});
 
@@ -241,256 +371,37 @@ describe('storage', () => {
 			const result = importState(JSON.stringify(oldFormat));
 
 			expect(result.success).toBe(true);
-		});
-	});
-
-	describe('loadWorkspace / saveWorkspace / clearWorkspace', () => {
-		it('should return null when no workspace stored', () => {
-			const result = loadWorkspace();
-
-			expect(result).toBeNull();
-		});
-
-		it('should save and load workspace', () => {
-			saveWorkspace(validWorkspace);
-
-			const result = loadWorkspace();
-
-			expect(result?.id).toBe(validWorkspace.id);
-			expect(result?.shareToken).toBe(validWorkspace.shareToken);
-			expect(result?.isOwner).toBe(true);
-		});
-
-		it('should strip legacy passphrase field from stored data', () => {
-			const legacyWorkspace = { ...validWorkspace, passphrase: 'old-pass' };
-			saveWorkspace(legacyWorkspace as unknown as WorkspaceInfo);
-
-			const result = loadWorkspace();
-
-			expect(result?.id).toBe(validWorkspace.id);
-			expect((result as unknown as Record<string, unknown>)?.passphrase).toBeUndefined();
-		});
-
-		it('should clear workspace', () => {
-			saveWorkspace(validWorkspace);
-			clearWorkspace();
-
-			expect(loadWorkspace()).toBeNull();
-		});
-
-		it('should migrate from legacy workspace key', () => {
-			localStorage.setItem('crafty-workspace', JSON.stringify(validWorkspace));
-
-			const result = loadWorkspace();
-
-			expect(result?.id).toBe(validWorkspace.id);
-			expect(localStorage.getItem('crafty-workspace')).toBeNull();
-			expect(localStorage.getItem('pricemycraft-workspace')).not.toBeNull();
-		});
-
-		it('should clear both legacy and new workspace keys', () => {
-			localStorage.setItem('crafty-workspace', JSON.stringify(validWorkspace));
-			localStorage.setItem('pricemycraft-workspace', JSON.stringify(validWorkspace));
-
-			clearWorkspace();
-
-			expect(localStorage.getItem('crafty-workspace')).toBeNull();
-			expect(localStorage.getItem('pricemycraft-workspace')).toBeNull();
-		});
-	});
-
-	describe('loadSyncMeta / saveSyncMeta / clearSyncMeta', () => {
-		it('should return default when no sync meta stored', () => {
-			const result = loadSyncMeta();
-
-			expect(result).toEqual({ lastSyncedAt: null });
-		});
-
-		it('should save and load sync meta', () => {
-			const meta = { lastSyncedAt: Date.now() };
-			saveSyncMeta(meta);
-
-			const result = loadSyncMeta();
-
-			expect(result).toEqual(meta);
-		});
-
-		it('should clear sync meta', () => {
-			saveSyncMeta({ lastSyncedAt: Date.now() });
-			clearSyncMeta();
-
-			expect(loadSyncMeta()).toEqual({ lastSyncedAt: null });
-		});
-
-		it('should migrate from legacy sync meta key', () => {
-			const meta = { lastSyncedAt: Date.now() };
-			localStorage.setItem('crafty-sync-meta', JSON.stringify(meta));
-
-			const result = loadSyncMeta();
-
-			expect(result).toEqual(meta);
-			expect(localStorage.getItem('crafty-sync-meta')).toBeNull();
-		});
-	});
-
-	describe('loadProjectHistory / saveProjectHistory', () => {
-		it('should return empty array when no history', () => {
-			const result = loadProjectHistory();
-
-			expect(result).toEqual([]);
-		});
-
-		it('should save and load history', () => {
-			const history = [
-				{ id: validUUID, url: 'http://example.com/1', visitedAt: Date.now() }
-			];
-			saveProjectHistory(history);
-
-			const result = loadProjectHistory();
-
-			expect(result).toEqual(history);
-		});
-
-		it('should filter out invalid entries', () => {
-			const mixed = [
-				{ id: validUUID, url: 'http://example.com', visitedAt: Date.now() },
-				{ id: 123, url: 'http://example.com', visitedAt: Date.now() }, // Invalid: numeric id
-				{ url: 'http://example.com', visitedAt: Date.now() }, // Invalid: missing id
-				{ id: validUUID, visitedAt: Date.now() } // Invalid: missing url
-			];
-			localStorage.setItem('pricemycraft-project-history', JSON.stringify(mixed));
-
-			const result = loadProjectHistory();
-
-			expect(result).toHaveLength(1);
-			expect(result[0].id).toBe(validUUID);
-		});
-
-		it('should return empty array for non-array data', () => {
-			localStorage.setItem('pricemycraft-project-history', JSON.stringify({ not: 'array' }));
-
-			const result = loadProjectHistory();
-
-			expect(result).toEqual([]);
-		});
-	});
-
-	describe('recordProjectVisit', () => {
-		it('should record new visit', () => {
-			recordProjectVisit({ id: validUUID, url: 'http://example.com/1' });
-
-			const history = loadProjectHistory();
-
-			expect(history).toHaveLength(1);
-			expect(history[0].id).toBe(validUUID);
-			expect(history[0].url).toBe('http://example.com/1');
-			expect(history[0].visitedAt).toBeDefined();
-		});
-
-		it('should deduplicate by id', () => {
-			recordProjectVisit({ id: validUUID, url: 'http://example.com/1' });
-			recordProjectVisit({ id: validUUID, url: 'http://example.com/updated' });
-
-			const history = loadProjectHistory();
-
-			expect(history).toHaveLength(1);
-			expect(history[0].url).toBe('http://example.com/updated');
-		});
-
-		it('should deduplicate by url', () => {
-			const url = 'http://example.com/same';
-			recordProjectVisit({ id: '550e8400-e29b-41d4-a716-446655440001', url });
-			recordProjectVisit({ id: '550e8400-e29b-41d4-a716-446655440002', url });
-
-			const history = loadProjectHistory();
-
-			expect(history).toHaveLength(1);
-			expect(history[0].id).toBe('550e8400-e29b-41d4-a716-446655440002');
-		});
-
-		it('should limit history to 10 entries', () => {
-			// Add 12 entries
-			for (let i = 0; i < 12; i++) {
-				recordProjectVisit({
-					id: `550e8400-e29b-41d4-a716-4466554400${i.toString().padStart(2, '0')}`,
-					url: `http://example.com/${i}`
-				});
+			if (result.success) {
+				expect(result.data.laborTypes).toEqual([]);
+				expect(result.data.projectMaterials).toEqual([]);
 			}
-
-			const history = loadProjectHistory();
-
-			expect(history).toHaveLength(10);
-			// Most recent should be first
-			expect(history[0].url).toBe('http://example.com/11');
 		});
 
-		it('should put new visits at the beginning', () => {
-			recordProjectVisit({ id: '550e8400-e29b-41d4-a716-446655440001', url: 'http://first.com' });
-			recordProjectVisit({ id: '550e8400-e29b-41d4-a716-446655440002', url: 'http://second.com' });
+		it('should migrate old projects with embedded materials during import', () => {
+			const oldFormat = {
+				settings: { currencySymbol: '$' },
+				materials: [{ id: validUUID, name: 'Fabric', unitCost: 12, unit: 'yard' }],
+				projects: [
+					{
+						id: validUUID2,
+						name: 'Quilt',
+						materials: [{ materialId: validUUID, quantity: 5 }],
+						laborMinutes: 480,
+						createdAt: 1700000000000,
+						updatedAt: 1700000000000
+					}
+				]
+			};
 
-			const history = loadProjectHistory();
+			const result = importState(JSON.stringify(oldFormat));
 
-			expect(history[0].url).toBe('http://second.com');
-			expect(history[1].url).toBe('http://first.com');
-		});
-	});
-
-	describe('clearProjectHistory', () => {
-		it('should clear all history', () => {
-			recordProjectVisit({ id: validUUID, url: 'http://example.com' });
-			clearProjectHistory();
-
-			expect(loadProjectHistory()).toEqual([]);
-		});
-	});
-
-	describe('clearLocalData', () => {
-		it('should clear state, sync meta, and project history', () => {
-			saveState(validAppState);
-			saveSyncMeta({ lastSyncedAt: Date.now() });
-			recordProjectVisit({ id: validUUID, url: 'http://example.com' });
-
-			clearLocalData();
-
-			expect(loadState()).toEqual(DEFAULT_STATE);
-			expect(loadSyncMeta()).toEqual({ lastSyncedAt: null });
-			expect(loadProjectHistory()).toEqual([]);
-		});
-
-		it('should preserve workspace', () => {
-			saveWorkspace(validWorkspace);
-
-			clearLocalData();
-
-			const loaded = loadWorkspace();
-			expect(loaded?.id).toBe(validWorkspace.id);
-			expect(loaded?.isOwner).toBe(validWorkspace.isOwner);
-		});
-	});
-
-	describe('loadExtendedState', () => {
-		it('should combine app state, workspace, and sync meta', () => {
-			saveState(validAppState);
-			saveWorkspace(validWorkspace);
-			saveSyncMeta({ lastSyncedAt: 12345 });
-
-			const result = loadExtendedState();
-
-			expect(result.materials).toEqual(validAppState.materials);
-			expect(result.projects).toEqual(validAppState.projects);
-			expect(result.workspace?.id).toBe(validWorkspace.id);
-			expect(result.lastSyncedAt).toBe(12345);
-			expect(result.syncStatus).toBe('offline');
-			expect(result.pendingChanges).toEqual([]);
-		});
-
-		it('should return defaults when nothing stored', () => {
-			const result = loadExtendedState();
-
-			expect(result.materials).toEqual([]);
-			expect(result.projects).toEqual([]);
-			expect(result.workspace).toBeNull();
-			expect(result.lastSyncedAt).toBeNull();
+			expect(result.success).toBe(true);
+			if (result.success) {
+				expect(result.data.projectMaterials).toHaveLength(1);
+				expect(result.data.projectMaterials[0].materialName).toBe('Fabric');
+				expect(result.data.projectMaterials[0].materialUnitCost).toBe(12);
+				expect(result.data.projects[0].slug).toBe('quilt');
+			}
 		});
 	});
 });

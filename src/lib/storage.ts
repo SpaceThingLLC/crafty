@@ -1,20 +1,9 @@
-import type { AppState, ExtendedAppState, ProjectHistoryEntry, WorkspaceInfo } from './types';
-import { DEFAULT_STATE, DEFAULT_SETTINGS, DEFAULT_EXTENDED_STATE } from './types';
+import type { AppState } from './types';
+import { DEFAULT_STATE, DEFAULT_SETTINGS } from './types';
 import { AppStateSchema, type ValidationResult, formatValidationErrors } from './schemas';
 
 const STORAGE_KEY = 'pricemycraft-app-state';
 const LEGACY_STORAGE_KEY = 'crafty-app-state';
-const WORKSPACE_KEY = 'pricemycraft-workspace';
-const SYNC_META_KEY = 'pricemycraft-sync-meta';
-const PROJECT_HISTORY_KEY = 'pricemycraft-project-history';
-const PROJECT_HISTORY_LIMIT = 10;
-
-// Legacy keys for migration
-const LEGACY_WORKSPACE_KEY = 'crafty-workspace';
-const LEGACY_SYNC_META_KEY = 'crafty-sync-meta';
-
-// Legacy keys to clean up (passphrase storage no longer used)
-const LEGACY_WORKSPACE_SECRET_KEY = 'pricemycraft-workspace-secret';
 
 /**
  * Check if we're in a browser environment
@@ -24,8 +13,34 @@ function isBrowser(): boolean {
 }
 
 /**
+ * Generate a URL-safe slug from a name
+ */
+function slugify(name: string): string {
+	return (
+		name
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-|-$/g, '') || 'project'
+	);
+}
+
+/**
+ * Convert a numeric timestamp or ISO string to an ISO string, or return undefined
+ */
+function toISOString(value: unknown): string | undefined {
+	if (typeof value === 'string') return value;
+	if (typeof value === 'number' && value > 0) return new Date(value).toISOString();
+	return undefined;
+}
+
+/**
  * Migrate data from older versions to the current schema format.
- * This ensures backward compatibility when the schema evolves.
+ * Handles:
+ * - Old settings with laborRate/laborRateUnit → new settings with defaultLaborTypeId
+ * - Old projects with embedded materials → separate projectMaterials array
+ * - Old projects without slug/sortOrder/isPublic → defaults added
+ * - Numeric timestamps → ISO strings
+ * - Missing laborTypes/projectMaterials arrays → empty arrays
  */
 function migrateState(data: unknown): unknown {
 	if (typeof data !== 'object' || data === null) {
@@ -34,31 +49,96 @@ function migrateState(data: unknown): unknown {
 
 	const obj = data as Record<string, unknown>;
 
-	// Migrate settings - merge with defaults for any missing fields
-	const settings = typeof obj.settings === 'object' && obj.settings !== null
-		? { ...DEFAULT_SETTINGS, ...(obj.settings as Record<string, unknown>) }
-		: DEFAULT_SETTINGS;
+	// Migrate settings - strip old labor fields, add new defaults
+	const rawSettings =
+		typeof obj.settings === 'object' && obj.settings !== null
+			? (obj.settings as Record<string, unknown>)
+			: {};
+	const settings = {
+		currencySymbol: rawSettings.currencySymbol ?? DEFAULT_SETTINGS.currencySymbol,
+		currencyCode: rawSettings.currencyCode ?? DEFAULT_SETTINGS.currencyCode,
+		defaultLaborTypeId: rawSettings.defaultLaborTypeId ?? null
+	};
 
-	// Migrate lastSelectedProjectId - convert undefined to null
-	const lastSelectedProjectId = obj.lastSelectedProjectId ?? null;
-
-	// Migrate materials array - ensure it exists
+	// Migrate materials (structure unchanged, but ensure array exists)
 	const materials = Array.isArray(obj.materials) ? obj.materials : [];
 
-	// Migrate projects array - ensure it exists
-	const projects = Array.isArray(obj.projects) ? obj.projects : [];
+	// Labor types (new field - preserve if exists, default to empty)
+	const laborTypes = Array.isArray(obj.laborTypes) ? obj.laborTypes : [];
+
+	// Build material lookup for filling in snapshot data during project material migration
+	const materialMap = new Map<string, { name: string; unitCost: number; unit: string }>();
+	for (const m of materials) {
+		if (m && typeof m === 'object' && typeof (m as Record<string, unknown>).id === 'string') {
+			const mat = m as Record<string, unknown>;
+			materialMap.set(mat.id as string, {
+				name: (mat.name as string) || 'Unknown',
+				unitCost: typeof mat.unitCost === 'number' ? mat.unitCost : 0,
+				unit: (mat.unit as string) || 'unit'
+			});
+		}
+	}
+
+	// Migrate projects and extract embedded project materials
+	const rawProjects = Array.isArray(obj.projects) ? obj.projects : [];
+	const hasExistingProjectMaterials = Array.isArray(obj.projectMaterials);
+	const projectMaterials: unknown[] = hasExistingProjectMaterials
+		? (obj.projectMaterials as unknown[])
+		: [];
+	const projects: unknown[] = [];
+
+	for (const p of rawProjects) {
+		if (!p || typeof p !== 'object') continue;
+		const proj = p as Record<string, unknown>;
+
+		// Extract embedded materials from old format (only if no separate projectMaterials exist)
+		if (Array.isArray(proj.materials) && !hasExistingProjectMaterials) {
+			for (const pm of proj.materials as unknown[]) {
+				if (!pm || typeof pm !== 'object') continue;
+				const pmObj = pm as Record<string, unknown>;
+				const materialInfo = materialMap.get(pmObj.materialId as string);
+				projectMaterials.push({
+					id: crypto.randomUUID(),
+					projectId: proj.id,
+					materialId: pmObj.materialId ?? null,
+					quantity: pmObj.quantity ?? 1,
+					materialName: materialInfo?.name ?? 'Unknown',
+					materialUnitCost: materialInfo?.unitCost ?? 0,
+					materialUnit: materialInfo?.unit ?? 'unit'
+				});
+			}
+		}
+
+		// Convert project to new format
+		projects.push({
+			id: proj.id,
+			name: proj.name,
+			slug: proj.slug ?? slugify((proj.name as string) || 'project'),
+			description: proj.description,
+			laborMinutes: proj.laborMinutes ?? 0,
+			laborTypeId: proj.laborTypeId ?? null,
+			isPublic: proj.isPublic ?? true,
+			sortOrder: proj.sortOrder ?? 0,
+			createdAt: toISOString(proj.createdAt),
+			updatedAt: toISOString(proj.updatedAt)
+		});
+	}
+
+	const lastSelectedProjectId = obj.lastSelectedProjectId ?? null;
 
 	return {
 		settings,
 		materials,
+		laborTypes,
 		projects,
+		projectMaterials,
 		lastSelectedProjectId
 	};
 }
 
 /**
  * Load state from localStorage with validation.
- * Includes migration from legacy storage key (crafty-app-state) to new key (pricemycraft-app-state).
+ * Includes migration from legacy storage key and old schema formats.
  */
 export function loadState(): AppState {
 	if (!isBrowser()) {
@@ -73,7 +153,6 @@ export function loadState(): AppState {
 		if (!stored) {
 			const legacyStored = localStorage.getItem(LEGACY_STORAGE_KEY);
 			if (legacyStored) {
-				// Migrate: copy to new key and remove old key
 				localStorage.setItem(STORAGE_KEY, legacyStored);
 				localStorage.removeItem(LEGACY_STORAGE_KEY);
 				stored = legacyStored;
@@ -133,18 +212,6 @@ export function clearState(): void {
 }
 
 /**
- * Clear sync metadata (including legacy key)
- */
-export function clearSyncMeta(): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	localStorage.removeItem(SYNC_META_KEY);
-	localStorage.removeItem(LEGACY_SYNC_META_KEY);
-}
-
-/**
  * Export state as a JSON string for download
  */
 export function exportState(state: AppState): string {
@@ -174,7 +241,8 @@ export function importState(jsonString: string): ValidationResult<AppState> {
 				{
 					code: 'custom',
 					path: [],
-					message: error instanceof Error ? `Invalid JSON: ${error.message}` : 'Invalid JSON format'
+					message:
+						error instanceof Error ? `Invalid JSON: ${error.message}` : 'Invalid JSON format'
 				}
 			]
 		};
@@ -200,232 +268,4 @@ export function downloadState(state: AppState): void {
 	a.click();
 	document.body.removeChild(a);
 	URL.revokeObjectURL(url);
-}
-
-// Workspace and sync metadata storage
-
-interface SyncMeta {
-	lastSyncedAt: number | null;
-}
-
-/**
- * Load workspace info from localStorage (with legacy key migration)
- */
-export function loadWorkspace(): WorkspaceInfo | null {
-	if (!isBrowser()) {
-		return null;
-	}
-
-	try {
-		let stored = localStorage.getItem(WORKSPACE_KEY);
-
-		// Check for legacy key and migrate
-		if (!stored) {
-			const legacyStored = localStorage.getItem(LEGACY_WORKSPACE_KEY);
-			if (legacyStored) {
-				localStorage.setItem(WORKSPACE_KEY, legacyStored);
-				localStorage.removeItem(LEGACY_WORKSPACE_KEY);
-				stored = legacyStored;
-				console.info('Migrated workspace from legacy storage key');
-			}
-		}
-
-		if (!stored) return null;
-
-		const parsed = JSON.parse(stored) as WorkspaceInfo & { passphrase?: string | null };
-
-		// Clean up legacy passphrase fields from stored data
-		delete (parsed as { passphrase?: string | null }).passphrase;
-
-		// Clean up legacy passphrase secret storage
-		cleanupLegacySecrets();
-
-		return {
-			...parsed,
-			shareToken: parsed.shareToken ?? null
-		};
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Remove legacy passphrase secrets from session/local storage
- */
-function cleanupLegacySecrets(): void {
-	try {
-		sessionStorage.removeItem(LEGACY_WORKSPACE_SECRET_KEY);
-		localStorage.removeItem(LEGACY_WORKSPACE_SECRET_KEY);
-	} catch {
-		// Ignore storage errors
-	}
-}
-
-/**
- * Save workspace info to localStorage
- */
-export function saveWorkspace(workspace: WorkspaceInfo): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	try {
-		localStorage.setItem(WORKSPACE_KEY, JSON.stringify(workspace));
-	} catch (error) {
-		console.error('Failed to save workspace:', error);
-	}
-}
-
-/**
- * Clear workspace info (including legacy key)
- */
-export function clearWorkspace(): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	localStorage.removeItem(WORKSPACE_KEY);
-	localStorage.removeItem(LEGACY_WORKSPACE_KEY);
-	cleanupLegacySecrets();
-}
-
-/**
- * Load sync metadata (with legacy key migration)
- */
-export function loadSyncMeta(): SyncMeta {
-	if (!isBrowser()) {
-		return { lastSyncedAt: null };
-	}
-
-	try {
-		let stored = localStorage.getItem(SYNC_META_KEY);
-
-		// Check for legacy key and migrate
-		if (!stored) {
-			const legacyStored = localStorage.getItem(LEGACY_SYNC_META_KEY);
-			if (legacyStored) {
-				localStorage.setItem(SYNC_META_KEY, legacyStored);
-				localStorage.removeItem(LEGACY_SYNC_META_KEY);
-				stored = legacyStored;
-				console.info('Migrated sync meta from legacy storage key');
-			}
-		}
-
-		if (!stored) return { lastSyncedAt: null };
-		return JSON.parse(stored) as SyncMeta;
-	} catch {
-		return { lastSyncedAt: null };
-	}
-}
-
-/**
- * Save sync metadata
- */
-export function saveSyncMeta(meta: SyncMeta): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	try {
-		localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta));
-	} catch (error) {
-		console.error('Failed to save sync meta:', error);
-	}
-}
-
-/**
- * Load recent workspace URL history
- */
-export function loadProjectHistory(): ProjectHistoryEntry[] {
-	if (!isBrowser()) {
-		return [];
-	}
-
-	try {
-		const stored = localStorage.getItem(PROJECT_HISTORY_KEY);
-		if (!stored) return [];
-		const parsed = JSON.parse(stored);
-		if (!Array.isArray(parsed)) return [];
-		return parsed.filter(
-			(item) =>
-				item &&
-				typeof item.id === 'string' &&
-				typeof item.url === 'string' &&
-				typeof item.visitedAt === 'number'
-		) as ProjectHistoryEntry[];
-	} catch {
-		return [];
-	}
-}
-
-/**
- * Save recent workspace URL history
- */
-export function saveProjectHistory(entries: ProjectHistoryEntry[]): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	try {
-		localStorage.setItem(PROJECT_HISTORY_KEY, JSON.stringify(entries));
-	} catch (error) {
-		console.error('Failed to save project history:', error);
-	}
-}
-
-/**
- * Record a workspace visit for history
- */
-export function recordProjectVisit(entry: { id: string; url: string }): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	const history = loadProjectHistory();
-	const normalizedUrl = entry.url;
-	const updatedEntry: ProjectHistoryEntry = {
-		id: entry.id,
-		url: normalizedUrl,
-		visitedAt: Date.now()
-	};
-	const deduped = history.filter((item) => item.id !== entry.id && item.url !== normalizedUrl);
-	const next = [updatedEntry, ...deduped].slice(0, PROJECT_HISTORY_LIMIT);
-	saveProjectHistory(next);
-}
-
-/**
- * Clear workspace URL history
- */
-export function clearProjectHistory(): void {
-	if (!isBrowser()) {
-		return;
-	}
-
-	localStorage.removeItem(PROJECT_HISTORY_KEY);
-}
-
-/**
- * Clear local app data while keeping workspace access
- */
-export function clearLocalData(): void {
-	clearState();
-	clearSyncMeta();
-	clearProjectHistory();
-}
-
-/**
- * Load extended state with workspace and sync info
- */
-export function loadExtendedState(): ExtendedAppState {
-	const appState = loadState();
-	const workspace = loadWorkspace();
-	const syncMeta = loadSyncMeta();
-
-	return {
-		...appState,
-		workspace,
-		syncStatus: workspace ? 'offline' : 'offline',
-		lastSyncedAt: syncMeta.lastSyncedAt,
-		pendingChanges: []
-	};
 }
