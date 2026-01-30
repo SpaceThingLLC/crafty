@@ -7,7 +7,7 @@
 
 	<header class="space-y-2">
 		<h1 class="text-3xl font-bold">Privacy Policy</h1>
-		<p class="text-sm text-surface-500">Last updated: January 26, 2026</p>
+		<p class="text-sm text-surface-500">Last updated: January 27, 2026</p>
 	</header>
 
 	<section class="space-y-3 text-sm text-surface-700-200">
@@ -23,23 +23,30 @@
 		<h2 class="text-lg font-semibold">Data we collect</h2>
 		<div class="space-y-3 text-sm text-surface-700-200">
 			<p>
-				<strong>Data you enter locally.</strong> Materials, projects, settings, labor rates,
-				and any other information you enter are stored in your browser using localStorage.
-				This data does not leave your device unless you enable cloud sync.
+				<strong>Data you enter locally.</strong> Materials, projects, settings, labor types,
+				and any other information you enter are stored in your browser using localStorage
+				when you are not signed in. This data does not leave your device unless you sign in
+				and use cloud features.
 			</p>
 			<p>
-				<strong>Workspace metadata.</strong> If you use cloud sync, the app stores a workspace
-				ID and a share token on your device.
+				<strong>Account and profile data.</strong> If you create an account, we store your
+				email and profile information you provide (such as a public username, bio, contact
+				info, and avatar). Authentication is handled by Supabase Auth.
 			</p>
 			<p>
-				<strong>Cloud sync data (optional).</strong> When cloud sync is configured and you
-				sign in, your workspace data (materials, projects, settings, and timestamps) is
-				stored in a managed database.
+				<strong>Workspace and project data.</strong> When you are signed in, your workspaces,
+				labor types, materials, projects, settings, and timestamps are stored in a managed
+				database. Project photos you upload are stored in managed object storage.
+			</p>
+			<p>
+				<strong>Public pages.</strong> If you mark a workspace or project as public, its name,
+				description, materials, pricing details, and photos may be visible on your public
+				profile and project pages.
 			</p>
 			<p>
 				<strong>Basic request logs.</strong> If you use a hosted instance, the hosting provider
 				may collect basic server logs (such as IP address, user agent, and request time) for
-				security and reliability. For this site, hosting is provided by GitHub Pages.
+				security and reliability. For this site, hosting is provided by Cloudflare Pages.
 			</p>
 			<p>
 				<strong>Donations (optional).</strong> If you choose to make a donation via Ko-fi,
@@ -54,8 +61,9 @@
 		<h2 class="text-lg font-semibold">How we use data</h2>
 		<ul class="list-disc pl-5 text-sm text-surface-700-200 space-y-2">
 			<li>Provide the calculator, materials library, and project management features.</li>
-			<li>Sync data across devices when you choose to enable cloud sync.</li>
-			<li>Keep your workspace share links and view-only access working.</li>
+			<li>Authenticate accounts and keep your dashboard session working.</li>
+			<li>Sync data across devices when you are signed in.</li>
+			<li>Publish public profiles and project pages when you choose to make them public.</li>
 			<li>Maintain the security and stability of the service.</li>
 		</ul>
 	</section>
@@ -67,13 +75,13 @@
 				We do not sell your data and we do not use advertising or tracking cookies.
 			</p>
 			<p>
-				If cloud sync is enabled, data is processed and stored by a managed database provider
-				as a service provider. The hosting provider for the app may also process basic
+				If you are signed in, data is processed and stored by a managed database provider and
+				object storage service. The hosting provider for the app may also process basic
 				request logs.
 			</p>
 			<p>
-				Share links are bearer tokens. Anyone with the link can view the workspace, so treat
-				them like passwords.
+				Public profiles and project pages are available to anyone with the link. Do not
+				publish sensitive personal information in public fields.
 			</p>
 			<p>
 				Donations are processed by Ko-fi. If you donate, your information is handled according
@@ -90,9 +98,9 @@
 				your browser storage.
 			</p>
 			<p>
-				If cloud sync is enabled, your workspace data remains in the Supabase database for
-				that instance until it is deleted by the operator or overwritten by you. You can
-				rotate a share link in the app to invalidate older view-only URLs.
+				If you are signed in, your workspace data remains in the Supabase database for that
+				instance until it is deleted by you or by the operator of that instance. You can
+				unpublish a workspace or project at any time.
 			</p>
 		</div>
 	</section>
@@ -100,9 +108,9 @@
 	<section class="space-y-3">
 		<h2 class="text-lg font-semibold">Security</h2>
 		<p class="text-sm text-surface-700-200">
-			We use authenticated access and restricted database permissions for cloud sync. No
-			system is 100% secure, so avoid storing sensitive personal information in your workspace
-			data.
+			We use Supabase Auth, row-level security, and storage access controls to protect your
+			data. No system is 100% secure, so avoid storing sensitive personal information in your
+			workspace data.
 		</p>
 	</section>
 

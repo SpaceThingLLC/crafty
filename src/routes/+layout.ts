@@ -1,2 +1,2 @@
-export const prerender = true;
-export const trailingSlash = 'always';
+// Root layout - no global prerender or trailingSlash.
+// Per-route rendering is configured in individual route files.

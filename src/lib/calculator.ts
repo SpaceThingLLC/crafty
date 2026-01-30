@@ -1,23 +1,18 @@
-import type { Material, Project, ProjectMaterial, Settings, LaborRateUnit } from './types';
+import type { ProjectMaterial, LaborType, LaborRateUnit, Settings } from './types';
 import { getCurrencyConfig, migrateCurrencySymbol } from './currencies';
 
 /**
- * Calculate the cost of a single material usage in a project
+ * Calculate the cost of a single project material using its snapshot values
  */
-export function calculateMaterialCost(
-	projectMaterial: ProjectMaterial,
-	materials: Material[]
-): number {
-	const material = materials.find((m) => m.id === projectMaterial.materialId);
-	if (!material) return 0;
-	return material.unitCost * projectMaterial.quantity;
+export function calculateMaterialCost(projectMaterial: ProjectMaterial): number {
+	return projectMaterial.materialUnitCost * projectMaterial.quantity;
 }
 
 /**
- * Calculate the total materials cost for a project
+ * Calculate the total materials cost for a set of project materials
  */
-export function calculateMaterialsTotal(project: Project, materials: Material[]): number {
-	return project.materials.reduce((total, pm) => total + calculateMaterialCost(pm, materials), 0);
+export function calculateMaterialsTotal(projectMaterials: ProjectMaterial[]): number {
+	return projectMaterials.reduce((total, pm) => total + calculateMaterialCost(pm), 0);
 }
 
 /**
@@ -30,25 +25,32 @@ export function getLaborRatePerMinute(rate: number, unit: LaborRateUnit): number
 		case '15min':
 			return rate / 15;
 		case 'minute':
-		default:
 			return rate;
+		case 'fixed':
+			return 0; // Fixed rate is not per-minute
 	}
 }
 
 /**
  * Calculate labor cost for a project
  */
-export function calculateLaborCost(laborMinutes: number, settings: Settings): number {
-	const ratePerMinute = getLaborRatePerMinute(settings.laborRate, settings.laborRateUnit);
+export function calculateLaborCost(laborMinutes: number, laborType: LaborType | null): number {
+	if (!laborType) return 0;
+	if (laborType.rateUnit === 'fixed') return laborType.rate;
+	const ratePerMinute = getLaborRatePerMinute(laborType.rate, laborType.rateUnit);
 	return laborMinutes * ratePerMinute;
 }
 
 /**
  * Calculate the total cost (suggested price) for a project
  */
-export function calculateProjectTotal(project: Project, materials: Material[], settings: Settings): number {
-	const materialsCost = calculateMaterialsTotal(project, materials);
-	const laborCost = calculateLaborCost(project.laborMinutes, settings);
+export function calculateProjectTotal(
+	projectMaterials: ProjectMaterial[],
+	laborMinutes: number,
+	laborType: LaborType | null
+): number {
+	const materialsCost = calculateMaterialsTotal(projectMaterials);
+	const laborCost = calculateLaborCost(laborMinutes, laborType);
 	return materialsCost + laborCost;
 }
 
@@ -100,7 +102,8 @@ export function getLaborRateUnitLabel(unit: LaborRateUnit): string {
 		case '15min':
 			return '15 Minutes';
 		case 'minute':
-		default:
 			return 'Minute';
+		case 'fixed':
+			return 'Fixed';
 	}
 }

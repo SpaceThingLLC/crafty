@@ -2,88 +2,110 @@
 	import { untrack } from 'svelte';
 	import Save from '@lucide/svelte/icons/save';
 	import SquareX from '@lucide/svelte/icons/square-x';
-	import { appState } from '$lib/state.svelte';
+	import { useDashboardState } from '$lib/dashboard-context.svelte';
 	import { toaster } from '$lib/toaster.svelte';
 	import type { Project } from '$lib/types';
 
 	interface Props {
 		project?: Project;
 		onclose: () => void;
+		onsaved?: (projectId: string) => void;
 	}
 
-	let { project, onclose }: Props = $props();
+	let { project, onclose, onsaved }: Props = $props();
+	const dash = useDashboardState();
 
-	// Capture initial values for form state (intentionally not reactive to prop changes)
 	let name = $state(untrack(() => project?.name ?? ''));
+	let slug = $state(untrack(() => project?.slug ?? ''));
 	let description = $state(untrack(() => project?.description ?? ''));
 	let laborMinutes = $state(untrack(() => project?.laborMinutes ?? 0));
-	let selectedMaterialIds = $state<string[]>(
-		untrack(() => project?.materials.map((pm) => pm.materialId) ?? [])
-	);
+	let laborTypeId = $state(untrack(() => project?.laborTypeId ?? ''));
+	let isPublic = $state(untrack(() => project?.isPublic ?? true));
+	let saving = $state(false);
+	let autoSlug = $state(!project);
 
-	// Available materials from library
-	let availableMaterials = $derived(appState.materials);
+	function slugify(text: string): string {
+		return (
+			text
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, '-')
+				.replace(/^-|-$/g, '') || 'project'
+		);
+	}
 
-	function toggleMaterial(materialId: string) {
-		if (selectedMaterialIds.includes(materialId)) {
-			selectedMaterialIds = selectedMaterialIds.filter((id) => id !== materialId);
-		} else {
-			selectedMaterialIds = [...selectedMaterialIds, materialId];
+	function handleNameChange() {
+		if (autoSlug) {
+			slug = slugify(name);
 		}
 	}
 
-	function handleSubmit(e: Event) {
-		e.preventDefault();
+	function handleSlugChange() {
+		autoSlug = false;
+	}
 
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
 		if (!name.trim()) {
-			toaster.error({
-				title: 'Validation Error',
-				description: 'Please enter a project name'
-			});
+			toaster.error({ title: 'Validation Error', description: 'Please enter a project name' });
 			return;
 		}
 
+		const finalSlug = slug.trim() || slugify(name);
+		saving = true;
+
 		if (project) {
-			// Editing existing project
-			appState.updateProject(project.id, {
+			await dash.updateProject(project.id, {
 				name: name.trim(),
+				slug: finalSlug,
 				description: description.trim() || undefined,
-				laborMinutes
+				laborMinutes,
+				laborTypeId: laborTypeId || null,
+				isPublic
 			});
-
-			// Sync materials: remove unselected, add newly selected
-			const currentMaterialIds = project.materials.map((pm) => pm.materialId);
-
-			// Remove materials that were deselected
-			for (const materialId of currentMaterialIds) {
-				if (!selectedMaterialIds.includes(materialId)) {
-					appState.removeProjectMaterial(project.id, materialId);
-				}
-			}
-
-			// Add newly selected materials (default quantity 1)
-			for (const materialId of selectedMaterialIds) {
-				if (!currentMaterialIds.includes(materialId)) {
-					appState.addMaterialToProject(project.id, materialId, 1);
-				}
-			}
+			saving = false;
+			onsaved?.(project.id);
+			onclose();
 		} else {
-			// Creating new project
-			appState.addProject(name.trim(), {
+			const newProject = await dash.addProject({
+				name: name.trim(),
+				slug: finalSlug,
 				description: description.trim() || undefined,
-				materialIds: selectedMaterialIds,
-				laborMinutes: laborMinutes > 0 ? laborMinutes : undefined
+				laborMinutes: laborMinutes > 0 ? laborMinutes : 0,
+				laborTypeId: laborTypeId || null,
+				isPublic
 			});
+			saving = false;
+			if (newProject) {
+				onsaved?.(newProject.id);
+			}
+			onclose();
 		}
-
-		onclose();
 	}
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-4">
 	<label class="label">
 		<span class="label-text">Project Name</span>
-		<input type="text" class="input" bind:value={name} placeholder="e.g., Cow Keychain" required />
+		<input
+			type="text"
+			class="input"
+			bind:value={name}
+			oninput={handleNameChange}
+			placeholder="e.g., Cow Keychain"
+			required
+		/>
+	</label>
+
+	<label class="label">
+		<span class="label-text">URL Slug</span>
+		<input
+			type="text"
+			class="input"
+			bind:value={slug}
+			oninput={handleSlugChange}
+			placeholder="cow-keychain"
+		/>
+		<span class="label-text text-xs text-surface-500">Used in the public URL for this project</span>
 	</label>
 
 	<label class="label">
@@ -96,58 +118,36 @@
 		></textarea>
 	</label>
 
-	<label class="label">
-		<span class="label-text">Time to Make (minutes)</span>
-		<input
-			type="number"
-			class="input"
-			bind:value={laborMinutes}
-			min="0"
-			step="1"
-			placeholder="15"
-		/>
+	<div class="grid grid-cols-2 gap-4">
+		<label class="label">
+			<span class="label-text">Time to Make (minutes)</span>
+			<input type="number" class="input" bind:value={laborMinutes} min="0" step="1" placeholder="15" />
+		</label>
+
+		<label class="label">
+			<span class="label-text">Labor Type</span>
+			<select class="select" bind:value={laborTypeId}>
+				<option value="">None</option>
+				{#each dash.laborTypes as lt (lt.id)}
+					<option value={lt.id}>{lt.name} ({lt.rate}/{lt.rateUnit})</option>
+				{/each}
+			</select>
+		</label>
+	</div>
+
+	<label class="flex items-center gap-3 cursor-pointer">
+		<input type="checkbox" class="checkbox" bind:checked={isPublic} />
+		<span class="label-text">Public (visible on your profile page)</span>
 	</label>
 
-	<!-- Material Selection -->
-	{#if availableMaterials.length > 0}
-		<div class="space-y-2">
-			<span class="label-text">Materials (select to include)</span>
-			<div class="max-h-48 overflow-y-auto p-2 bg-surface-100-900 rounded-lg space-y-1">
-				{#each availableMaterials as material (material.id)}
-					<label
-						class="flex items-center gap-3 p-2 hover:bg-surface-200-800 rounded cursor-pointer"
-					>
-						<input
-							type="checkbox"
-							class="checkbox"
-							checked={selectedMaterialIds.includes(material.id)}
-							onchange={() => toggleMaterial(material.id)}
-						/>
-						<span class="flex-1">{material.name}</span>
-						<span class="text-surface-600-400 text-sm">
-							{appState.settings.currencySymbol}{material.unitCost}/{material.unit}
-						</span>
-					</label>
-				{/each}
-			</div>
-			<p class="text-xs text-surface-500">
-				Quantities can be adjusted in the Calculator after saving.
-			</p>
-		</div>
-	{:else}
-		<p class="text-sm text-surface-600-400 p-3 bg-surface-100-900 rounded-lg">
-			No materials in library yet. Add materials first, then select them here.
-		</p>
-	{/if}
-
 	<div class="flex gap-2 justify-end">
-		<button type="button" class="btn preset-tonal-surface" onclick={onclose}>
+		<button type="button" class="btn preset-tonal-surface" onclick={onclose} disabled={saving}>
 			<SquareX size={16} />
 			<span>Cancel</span>
 		</button>
-		<button type="submit" class="btn preset-filled-primary-500">
+		<button type="submit" class="btn preset-filled-primary-500" disabled={saving}>
 			<Save size={16} />
-			<span>Save</span>
+			<span>{saving ? 'Saving...' : 'Save'}</span>
 		</button>
 	</div>
 </form>

@@ -1,64 +1,54 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import Download from '@lucide/svelte/icons/download';
 	import Upload from '@lucide/svelte/icons/upload';
-	import { appState } from '$lib/state.svelte';
-	import { authState } from '$lib/auth.svelte';
-	import AuthPanel from './AuthPanel.svelte';
-	import {
-		clearLocalData,
-		downloadState,
-		importState,
-		loadProjectHistory
-	} from '$lib/storage';
+	import { useDashboardState } from '$lib/dashboard-context.svelte';
+	import { downloadState, importState } from '$lib/storage';
 	import { toaster } from '$lib/toaster.svelte';
-	import type { LaborRateUnit, ProjectHistoryEntry } from '$lib/types';
-	import { getLaborRateUnitLabel, getCurrencySymbol } from '$lib/calculator';
+	import { getCurrencySymbol } from '$lib/calculator';
 	import { SUPPORTED_CURRENCIES, getCurrencyConfig, type CurrencyCode } from '$lib/currencies';
 
-	const laborRateUnits: LaborRateUnit[] = ['minute', '15min', 'hour'];
-	const RESET_CONFIRMATION_TEXT = 'RESET';
+	const dash = useDashboardState();
 
 	let fileInput = $state<HTMLInputElement | null>(null);
-	let projectHistory = $state<ProjectHistoryEntry[]>([]);
-	let resetConfirmation = $state('');
 
-	onMount(() => {
-		refreshProjectHistory();
-	});
-
-	function refreshProjectHistory() {
-		projectHistory = loadProjectHistory();
-	}
-
-	function handleCurrencyChange(e: Event) {
-		if (!appState.canEdit) return;
+	async function handleCurrencyChange(e: Event) {
 		const target = e.target as HTMLSelectElement;
 		const currencyCode = target.value as CurrencyCode;
 		const config = getCurrencyConfig(currencyCode);
-		appState.updateSettings({
+		await dash.updateSettings({
 			currencyCode,
 			currencySymbol: config?.symbol || '$'
 		});
 	}
 
-	function handleLaborRateChange(e: Event) {
-		if (!appState.canEdit) return;
-		const target = e.target as HTMLInputElement;
-		const value = parseFloat(target.value);
-		if (!isNaN(value) && value >= 0) {
-			appState.updateSettings({ laborRate: value });
-		}
-	}
-
-	function handleLaborRateUnitChange(e: Event) {
-		if (!appState.canEdit) return;
+	async function handleDefaultLaborTypeChange(e: Event) {
 		const target = e.target as HTMLSelectElement;
-		appState.updateSettings({ laborRateUnit: target.value as LaborRateUnit });
+		await dash.updateSettings({
+			defaultLaborTypeId: target.value || null
+		});
 	}
 
 	function handleExport() {
-		downloadState(appState.state);
+		// Build a local AppState-compatible object for export
+		const exportData = {
+			settings: dash.settings,
+			materials: dash.materials,
+			laborTypes: dash.laborTypes,
+			projects: dash.projects,
+			projectMaterials: dash.projectMaterials,
+			lastSelectedProjectId: null
+		};
+		const json = JSON.stringify(exportData, null, 2);
+		const blob = new Blob([json], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `pricemycraft-backup-${new Date().toISOString().split('T')[0]}.json`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+
 		toaster.success({
 			title: 'Export Complete',
 			description: 'Your data has been exported successfully.'
@@ -66,12 +56,10 @@
 	}
 
 	function handleImportClick() {
-		if (!appState.canEdit) return;
 		fileInput?.click();
 	}
 
 	async function handleFileSelect(e: Event) {
-		if (!appState.canEdit) return;
 		const target = e.target as HTMLInputElement;
 		const file = target.files?.[0];
 		if (!file) return;
@@ -81,10 +69,11 @@
 			const result = importState(text);
 
 			if (result.success) {
-				appState.importState(result.data);
+				// Import materials, labor types, projects, etc. into the workspace
+				// This is a simplified import - a full implementation would batch these
 				toaster.success({
-					title: 'Import Successful',
-					description: 'Data imported successfully!'
+					title: 'Import Parsed',
+					description: `Found ${result.data.materials.length} materials, ${result.data.projects.length} projects. Full import into workspace coming soon.`
 				});
 			} else {
 				const errorMessages = result.errors.map((error) => error.message).join(', ');
@@ -92,71 +81,19 @@
 					title: 'Import Failed',
 					description: `Validation failed: ${errorMessages}`
 				});
-				console.error('Import validation errors:', result.errors);
 			}
 		} catch (error) {
 			toaster.error({
 				title: 'Import Failed',
 				description: 'Failed to import data. Please check the file format.'
 			});
-			console.error('Import error:', error);
 		}
 
 		target.value = '';
 	}
-
-	function formatVisitDate(timestamp: number): string {
-		return new Date(timestamp).toLocaleString();
-	}
-
-	function handleLocalReset() {
-		if (resetConfirmation.trim() !== RESET_CONFIRMATION_TEXT) {
-			return;
-		}
-
-		clearLocalData();
-		appState.resetLocalState();
-		resetConfirmation = '';
-		refreshProjectHistory();
-		toaster.success({
-			title: 'Local Data Cleared',
-			description: 'Local settings and cached data have been removed.'
-		});
-
-		if (typeof window !== 'undefined') {
-			const url = new URL(window.location.href);
-			url.search = '';
-			url.hash = '';
-			window.location.assign(url.toString());
-		}
-	}
 </script>
 
 <div class="space-y-6 py-4">
-	<!-- Account -->
-	<section>
-		<h3 class="text-sm font-medium text-surface-600-400 mb-3">Account</h3>
-		<div class="card preset-tonal-surface p-4">
-			{#if authState.isAuthenticated}
-				<div class="flex items-center justify-between gap-3">
-					<div class="text-sm">
-						<span class="text-surface-600-400">Signed in as</span>
-						<span class="font-medium">{authState.email}</span>
-					</div>
-					<button
-						type="button"
-						class="btn btn-sm preset-tonal-surface"
-						onclick={() => authState.signOut()}
-					>
-						Sign Out
-					</button>
-				</div>
-			{:else}
-				<AuthPanel message="Sign in to enable cloud sync and edit from any device." />
-			{/if}
-		</div>
-	</section>
-
 	<!-- Pricing Settings -->
 	<section>
 		<h3 class="text-sm font-medium text-surface-600-400 mb-3">Pricing</h3>
@@ -165,10 +102,8 @@
 				<span class="label-text">Currency</span>
 				<select
 					class="select"
-					value={appState.settings.currencyCode || 'USD'}
+					value={dash.settings.currencyCode || 'USD'}
 					onchange={handleCurrencyChange}
-					disabled={!appState.canEdit}
-					title={!appState.canEdit ? 'Sign in to edit settings' : undefined}
 				>
 					{#each SUPPORTED_CURRENCIES as currency}
 						<option value={currency.code}>
@@ -179,38 +114,20 @@
 			</label>
 
 			<label class="label">
-				<span class="label-text">Labor Rate</span>
-				<div class="input-group grid-cols-[auto_1fr]">
-					<span class="ig-cell preset-filled-surface-200-800 text-surface-600-400">
-						{getCurrencySymbol(appState.settings)}
-					</span>
-					<input
-						type="number"
-						class="ig-input"
-						value={appState.settings.laborRate}
-						oninput={handleLaborRateChange}
-						min="0"
-						step="0.01"
-						placeholder="15.00"
-						disabled={!appState.canEdit}
-						title={!appState.canEdit ? 'Sign in to edit settings' : undefined}
-					/>
-				</div>
-			</label>
-
-			<label class="label">
-				<span class="label-text">Rate Per</span>
+				<span class="label-text">Default Labor Type</span>
 				<select
 					class="select"
-					value={appState.settings.laborRateUnit}
-					onchange={handleLaborRateUnitChange}
-					disabled={!appState.canEdit}
-					title={!appState.canEdit ? 'Sign in to edit settings' : undefined}
+					value={dash.settings.defaultLaborTypeId || ''}
+					onchange={handleDefaultLaborTypeChange}
 				>
-					{#each laborRateUnits as unit}
-						<option value={unit}>{getLaborRateUnitLabel(unit)}</option>
+					<option value="">None</option>
+					{#each dash.laborTypes as lt (lt.id)}
+						<option value={lt.id}>{lt.name} ({lt.rate}/{lt.rateUnit})</option>
 					{/each}
 				</select>
+				<span class="label-text text-xs text-surface-500">
+					New projects will use this labor type by default
+				</span>
 			</label>
 		</div>
 	</section>
@@ -221,17 +138,11 @@
 		<div class="flex gap-2">
 			<button type="button" class="btn btn-sm preset-tonal-surface" onclick={handleExport}>
 				<Download size={16} />
-				<span>Export My Data</span>
+				<span>Export Data</span>
 			</button>
-			<button
-				type="button"
-				class="btn btn-sm preset-tonal-surface"
-				onclick={handleImportClick}
-				disabled={!appState.canEdit}
-				title={!appState.canEdit ? 'Sign in to import data' : undefined}
-			>
+			<button type="button" class="btn btn-sm preset-tonal-surface" onclick={handleImportClick}>
 				<Upload size={16} />
-				<span>Import My Data</span>
+				<span>Import Data</span>
 			</button>
 			<input
 				type="file"
@@ -243,73 +154,12 @@
 		</div>
 	</section>
 
-	<!-- Project History -->
-	<section>
-		<h3 class="text-sm font-medium text-surface-600-400 mb-3">Project History</h3>
-		<div class="space-y-2">
-			{#if projectHistory.length === 0}
-				<p class="text-xs text-surface-500">No project history yet.</p>
-			{:else}
-				<ul class="space-y-2">
-					{#each projectHistory as entry}
-						<li class="card preset-tonal-surface p-3 space-y-1 text-xs">
-							<div class="flex items-start justify-between gap-3">
-								<a
-									class="text-primary-500 hover:underline break-all"
-									href={entry.url}
-									rel="noopener noreferrer"
-								>
-									{entry.url}
-								</a>
-								<span class="text-surface-500 whitespace-nowrap">
-									{formatVisitDate(entry.visitedAt)}
-								</span>
-							</div>
-							<div class="text-surface-500 break-all">ID: {entry.id}</div>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</div>
-	</section>
-
-	<!-- Reset Local Data -->
-	<section>
-		<h3 class="text-sm font-medium text-surface-600-400 mb-3">Reset Local Data</h3>
-		<div class="card preset-tonal-surface p-4 space-y-3">
-			<p class="text-xs text-surface-500">
-				This clears saved settings, materials, projects, and history from this browser.
-				Workspace access remains intact.
-			</p>
-			<label class="label">
-				<span class="label-text">Type {RESET_CONFIRMATION_TEXT} to confirm</span>
-				<input
-					type="text"
-					class="input"
-					bind:value={resetConfirmation}
-					placeholder={RESET_CONFIRMATION_TEXT}
-				/>
-			</label>
-			<button
-				type="button"
-				class="btn preset-filled-error-500 w-full"
-				onclick={handleLocalReset}
-				disabled={resetConfirmation.trim() !== RESET_CONFIRMATION_TEXT}
-			>
-				<span>Clear Local Data</span>
-			</button>
-			<p class="text-xs text-surface-500">
-				After clearing, you'll return to the base URL to start fresh.
-			</p>
-		</div>
-	</section>
-
 	<!-- Legal -->
 	<section>
 		<h3 class="text-sm font-medium text-surface-600-400 mb-3">Legal</h3>
 		<div class="card preset-tonal-surface p-4 space-y-2 text-sm">
-			<a class="text-primary-500 hover:underline" href="/privacy">Privacy Policy</a>
-			<a class="text-primary-500 hover:underline" href="/terms">Terms of Service</a>
+			<a class="text-primary-500 hover:underline block" href="/privacy">Privacy Policy</a>
+			<a class="text-primary-500 hover:underline block" href="/terms">Terms of Service</a>
 		</div>
 	</section>
 </div>

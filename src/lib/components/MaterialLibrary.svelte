@@ -2,46 +2,39 @@
 	import SquarePlus from '@lucide/svelte/icons/square-plus';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { appState } from '$lib/state.svelte';
+	import { useDashboardState } from '$lib/dashboard-context.svelte';
 	import { formatCurrency } from '$lib/calculator';
 	import MaterialForm from './MaterialForm.svelte';
 	import ConfirmDialog from './ConfirmDialog.svelte';
 	import type { Material } from '$lib/types';
 
+	const dash = useDashboardState();
+
 	let showForm = $state(false);
 	let editingMaterial = $state<Material | undefined>(undefined);
-
-	// Dialog state
 	let showDeleteDialog = $state(false);
 	let materialToDelete = $state<Material | null>(null);
 
 	function handleAdd() {
-		if (!appState.canEdit) return;
 		editingMaterial = undefined;
 		showForm = true;
 	}
 
 	function handleEdit(material: Material) {
-		if (!appState.canEdit) return;
 		editingMaterial = material;
 		showForm = true;
 	}
 
 	function handleDelete(material: Material) {
-		if (!appState.canEdit) return;
 		materialToDelete = material;
 		showDeleteDialog = true;
 	}
 
-	function confirmDelete() {
+	async function confirmDelete() {
 		if (materialToDelete) {
-			appState.deleteMaterial(materialToDelete.id);
+			await dash.deleteMaterial(materialToDelete.id);
 			materialToDelete = null;
 		}
-	}
-
-	function cancelDelete() {
-		materialToDelete = null;
 	}
 
 	function handleFormClose() {
@@ -53,12 +46,10 @@
 <div class="card p-4">
 	<div class="flex justify-between items-center mb-4">
 		<h3 class="text-lg font-bold">Materials Library</h3>
-		{#if appState.canEdit}
-			<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
-				<SquarePlus size={16} />
-				<span>Add Material</span>
-			</button>
-		{/if}
+		<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleAdd}>
+			<SquarePlus size={16} />
+			<span>Add Material</span>
+		</button>
 	</div>
 
 	{#if showForm}
@@ -67,23 +58,23 @@
 		</div>
 	{/if}
 
-	{#if appState.materials.length === 0}
+	{#if dash.materials.length === 0}
 		<p class="text-surface-600-400 text-center py-8">
 			No materials yet. Add your first material to get started!
 		</p>
 	{:else}
 		<ul class="space-y-2">
-			{#each appState.materials as material (material.id)}
+			{#each dash.materials as material (material.id)}
 				<li class="flex items-center justify-between p-3 rounded bg-surface-100-900">
 					<div class="flex-1">
 						<span class="font-medium">{material.name}</span>
 						{#if material.cost !== undefined}
 							<span class="text-surface-500 text-xs ml-2">
-								Cost: {formatCurrency(material.cost, appState.settings)}/{material.unit}
+								Cost: {formatCurrency(material.cost, dash.settings)}/{material.unit}
 							</span>
 						{/if}
 						<span class="text-surface-600-400 text-sm ml-2">
-							Price: {formatCurrency(material.unitCost, appState.settings)}/{material.unit}
+							Price: {formatCurrency(material.unitCost, dash.settings)}/{material.unit}
 						</span>
 						{#if material.notes}
 							<p class="text-surface-500 text-xs mt-1">{material.notes}</p>
@@ -95,8 +86,6 @@
 							class="btn-icon btn-sm preset-outlined-surface-500"
 							onclick={() => handleEdit(material)}
 							aria-label="Edit material"
-							disabled={!appState.canEdit}
-							title={!appState.canEdit ? 'Sign in to edit' : undefined}
 						>
 							<Pencil size={14} />
 						</button>
@@ -105,8 +94,6 @@
 							class="btn-icon btn-sm preset-tonal-error"
 							onclick={() => handleDelete(material)}
 							aria-label="Delete material"
-							disabled={!appState.canEdit}
-							title={!appState.canEdit ? 'Sign in to delete' : undefined}
 						>
 							<Trash2 size={14} />
 						</button>
@@ -126,5 +113,5 @@
 	confirmText="Delete"
 	variant="danger"
 	onconfirm={confirmDelete}
-	oncancel={cancelDelete}
+	oncancel={() => (materialToDelete = null)}
 />

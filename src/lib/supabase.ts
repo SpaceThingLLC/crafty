@@ -24,16 +24,18 @@ export function getSupabase(): SupabaseClient | null {
 	}
 
 	if (!supabaseClient) {
-		supabaseClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
-			auth: {
-				persistSession: true,
-				autoRefreshToken: true,
-				flowType: 'pkce' // Required for magic link auth on static sites
-			}
-		});
+		supabaseClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
 	}
 
 	return supabaseClient;
+}
+
+/**
+ * Get a public URL for a storage object
+ */
+export function getStorageUrl(path: string, bucket = 'project-photos'): string {
+	if (!PUBLIC_SUPABASE_URL) return '';
+	return `${PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
 }
 
 /**

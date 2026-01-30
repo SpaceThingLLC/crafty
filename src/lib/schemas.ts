@@ -2,42 +2,65 @@ import { z } from 'zod';
 import { CURRENCY_CODES } from './currencies';
 
 /**
- * Schema for a material in the shared materials library
+ * Schema for a workspace
  */
-export const MaterialSchema = z.object({
+export const WorkspaceSchema = z.object({
 	id: z.string().uuid(),
-	name: z.string().min(1, 'Material name is required'),
-	unitCost: z.number().nonnegative('Unit cost must be non-negative'),
-	unit: z.string().min(1, 'Unit is required'),
-	notes: z.string().optional(),
-	cost: z.number().nonnegative('Cost must be non-negative').optional()
-});
-
-/**
- * Schema for a material assignment within a project
- */
-export const ProjectMaterialSchema = z.object({
-	materialId: z.string().uuid(),
-	quantity: z.number().positive('Quantity must be greater than 0')
-});
-
-/**
- * Schema for a craft project with materials and labor time
- */
-export const ProjectSchema = z.object({
-	id: z.string().uuid(),
-	name: z.string().min(1, 'Project name is required'),
+	ownerId: z.string().uuid(),
+	name: z.string().min(1, 'Workspace name is required'),
 	description: z.string().optional(),
-	materials: z.array(ProjectMaterialSchema),
-	laborMinutes: z.number().nonnegative('Labor minutes must be non-negative'),
-	createdAt: z.number().int().positive(),
-	updatedAt: z.number().int().positive()
+	isPublic: z.boolean().default(true),
+	sortOrder: z.number().int().default(0),
+	createdAt: z.string().optional(),
+	updatedAt: z.string().optional()
 });
 
 /**
  * Labor rate unit options
  */
-export const LaborRateUnitSchema = z.enum(['hour', 'minute', '15min']);
+export const LaborRateUnitSchema = z.enum(['hour', 'minute', '15min', 'fixed']);
+
+/**
+ * Schema for a labor type
+ */
+export const LaborTypeSchema = z.object({
+	id: z.string().uuid(),
+	workspaceId: z.string().uuid().optional(),
+	name: z.string().min(1, 'Labor type name is required'),
+	rate: z.number().nonnegative('Rate must be non-negative'),
+	rateUnit: LaborRateUnitSchema,
+	sortOrder: z.number().int().default(0),
+	createdAt: z.string().optional(),
+	updatedAt: z.string().optional()
+});
+
+/**
+ * Schema for a material in the shared materials library
+ */
+export const MaterialSchema = z.object({
+	id: z.string().uuid(),
+	workspaceId: z.string().uuid().optional(),
+	name: z.string().min(1, 'Material name is required'),
+	unitCost: z.number().nonnegative('Unit cost must be non-negative'),
+	unit: z.string().min(1, 'Unit is required'),
+	cost: z.number().nonnegative('Cost must be non-negative').optional(),
+	notes: z.string().optional(),
+	createdAt: z.string().optional(),
+	updatedAt: z.string().optional()
+});
+
+/**
+ * Schema for a material assignment within a project (with snapshot of cost at assignment time)
+ */
+export const ProjectMaterialSchema = z.object({
+	id: z.string().uuid(),
+	projectId: z.string().uuid().optional(),
+	materialId: z.string().uuid().nullable().optional(),
+	quantity: z.number().positive('Quantity must be greater than 0'),
+	materialName: z.string().min(1, 'Material name is required'),
+	materialUnitCost: z.number().nonnegative('Unit cost must be non-negative'),
+	materialUnit: z.string().min(1, 'Unit is required')
+});
 
 /**
  * Supported currency codes (ISO 4217)
@@ -46,23 +69,68 @@ export const LaborRateUnitSchema = z.enum(['hour', 'minute', '15min']);
 export const CurrencyCodeSchema = z.enum(CURRENCY_CODES);
 
 /**
- * Schema for application settings
+ * Schema for a craft project
  */
-export const SettingsSchema = z.object({
-	currencySymbol: z.string().min(1, 'Currency symbol is required'),
-	currencyCode: CurrencyCodeSchema.optional(),
-	laborRate: z.number().nonnegative('Labor rate must be non-negative'),
-	laborRateUnit: LaborRateUnitSchema,
-	laborRatePromptDismissed: z.boolean().optional()
+export const ProjectSchema = z.object({
+	id: z.string().uuid(),
+	workspaceId: z.string().uuid().optional(),
+	ownerId: z.string().uuid().optional(),
+	name: z.string().min(1, 'Project name is required'),
+	slug: z.string().min(1, 'Slug is required'),
+	description: z.string().optional(),
+	laborMinutes: z.number().nonnegative('Labor minutes must be non-negative'),
+	laborTypeId: z.string().uuid().nullable().optional(),
+	isPublic: z.boolean().default(true),
+	sortOrder: z.number().int().default(0),
+	createdAt: z.string().optional(),
+	updatedAt: z.string().optional()
 });
 
 /**
- * Schema for complete application state
+ * Schema for a project photo
+ */
+export const ProjectPhotoSchema = z.object({
+	id: z.string().uuid(),
+	projectId: z.string().uuid(),
+	storagePath: z.string().min(1, 'Storage path is required'),
+	altText: z.string().optional(),
+	sortOrder: z.number().int().default(0),
+	createdAt: z.string().optional()
+});
+
+/**
+ * Schema for workspace settings
+ */
+export const SettingsSchema = z.object({
+	workspaceId: z.string().uuid().optional(),
+	currencySymbol: z.string().min(1, 'Currency symbol is required'),
+	currencyCode: CurrencyCodeSchema.optional(),
+	defaultLaborTypeId: z.string().uuid().nullable().optional()
+});
+
+/**
+ * Schema for user profile
+ */
+export const ProfileSchema = z.object({
+	id: z.string().uuid(),
+	username: z.string().min(1, 'Username is required'),
+	displayName: z.string().optional(),
+	bio: z.string().optional(),
+	contactInfo: z.record(z.string(), z.string()).optional(),
+	avatarUrl: z.string().optional(),
+	createdAt: z.string().optional(),
+	updatedAt: z.string().optional()
+});
+
+/**
+ * Schema for local-only application state
  */
 export const AppStateSchema = z.object({
 	settings: SettingsSchema,
 	materials: z.array(MaterialSchema),
+	laborTypes: z.array(LaborTypeSchema),
 	projects: z.array(ProjectSchema),
+	projectMaterials: z.array(ProjectMaterialSchema),
 	lastSelectedProjectId: z.string().uuid().nullable()
 });
 

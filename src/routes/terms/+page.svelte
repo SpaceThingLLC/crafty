@@ -7,7 +7,7 @@
 
 	<header class="space-y-2">
 		<h1 class="text-3xl font-bold">Terms of Service</h1>
-		<p class="text-sm text-surface-500">Last updated: January 26, 2026</p>
+		<p class="text-sm text-surface-500">Last updated: January 27, 2026</p>
 	</header>
 
 	<section class="space-y-3 text-sm text-surface-700-200">
@@ -22,7 +22,9 @@
 		<h2 class="text-lg font-semibold">Service description</h2>
 		<p class="text-sm text-surface-700-200">
 			PriceMyCraft is a craft cost calculator that runs in your browser. It stores data
-			locally and optionally syncs workspace data to a Supabase backend when configured.
+			locally when you are not signed in and syncs workspace data to Supabase when you use an
+			account. It also supports public profile and project pages when you choose to publish
+			them.
 		</p>
 	</section>
 
@@ -30,8 +32,8 @@
 		<h2 class="text-lg font-semibold">Your content and responsibilities</h2>
 		<ul class="list-disc pl-5 text-sm text-surface-700-200 space-y-2">
 			<li>You own the data you enter into the app.</li>
-			<li>Do not upload sensitive personal information. Share links are bearer tokens.</li>
-			<li>You are responsible for keeping your share links and account secure.</li>
+			<li>Do not upload sensitive personal information. Public pages are viewable by anyone.</li>
+			<li>You are responsible for keeping your account credentials secure.</li>
 			<li>Export your data if you need a backup. We do not guarantee data availability.</li>
 		</ul>
 	</section>
@@ -48,9 +50,10 @@
 	<section class="space-y-3">
 		<h2 class="text-lg font-semibold">Third-party services</h2>
 		<p class="text-sm text-surface-700-200">
-			This site is hosted on GitHub Pages. Cloud sync uses a managed database provider when
-			configured. If you choose to donate, Ko-fi processes the payment. Your use of these
-			services is subject to their respective terms and privacy practices.
+			This site is hosted on Cloudflare Pages. Accounts, database storage, and file uploads
+			use Supabase services when configured. If you choose to donate, Ko-fi processes the
+			payment. Your use of these services is subject to their respective terms and privacy
+			practices.
 		</p>
 	</section>
 
